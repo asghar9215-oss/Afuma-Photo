@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AAS PET Premium Gallery</title>
+    
+    <!-- Tailwind CSS & FontAwesome Icons -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Firebase Stable Core SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Poppins', sans-serif; -webkit-tap-highlight-color: transparent; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .modal { display: none; }
+        .modal.active { display: flex; }
+        .asset-card.selected { border-color: #2563eb; background-color: #eff6ff; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-900 select-none">
+
+    <!-- 1️⃣ Auth Section -->
+    <div id="auth-section" class="min-h-screen flex items-center justify-center p-6 bg-gradient-to-br from-blue-50 to-indigo-100">
+        <div class="bg-white p-8 rounded-3xl shadow-2xl w-full max-w-md text-center border border-gray-100">
+            <div class="w-full flex justify-center mb-6">
+                <img src="https://i.ibb.co/B2cJtFx4/75994.png" alt="Afuma Gallery Logo" class="w-48 h-auto object-contain rounded-2xl p-2">
+            </div>
+            <h2 id="auth-title" class="text-2xl font-bold mb-1 text-gray-800">Welcome Back</h2>
+            <p id="auth-subtitle" class="text-gray-400 text-sm mb-6">Access your secure vault</p>
+            <div class="space-y-4">
+                <div class="relative">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400"><i class="fa-solid fa-phone"></i></span>
+                    <input type="tel" id="auth-phone" placeholder="Enter Mobile Number" class="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                </div>
+                <div class="relative">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400"><i class="fa-solid fa-lock"></i></span>
+                    <input type="password" id="auth-password" placeholder="Password" class="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                </div>
+                <button onclick="handleAuth()" id="auth-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl shadow-lg transition active:scale-[0.98]">Login</button>
+                <p id="auth-toggle" onclick="toggleAuthMode()" class="text-sm text-blue-500 font-medium cursor-pointer hover:underline">Don't have an account? Sign Up</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2️⃣ Main App Dashboard -->
+    <div id="app-section" class="hidden min-h-screen pb-24">
+        
+        <!-- Selection Context Bar -->
+        <div id="selection-bar" class="hidden fixed top-0 left-0 right-0 bg-blue-600 text-white px-4 py-3 z-50 shadow-md flex justify-between items-center">
+            <div class="flex items-center gap-4">
+                <button onclick="clearSelection()" class="text-white text-xl p-1"><i class="fa-solid fa-xmark"></i></button>
+                <span id="selection-count" class="font-semibold text-sm">1 selected</span>
+            </div>
+            <div class="flex items-center gap-3">
+                <button onclick="selectAllCurrentTab()" class="text-xs font-semibold bg-blue-700 px-3 py-1.5 rounded-lg border border-blue-400 hover:bg-blue-800 transition">Select All</button>
+                <button onclick="shareSelectedAssets()" class="text-lg p-2 hover:bg-blue-700 rounded-full transition"><i class="fa-solid fa-share-nodes"></i></button>
+                <button onclick="deleteSelectedAssets()" class="text-lg p-2 hover:bg-red-600 rounded-full transition"><i class="fa-solid fa-trash-can"></i></button>
+            </div>
+        </div>
+
+        <!-- Header Controls -->
+        <header id="main-header" class="bg-white px-4 py-3 sticky top-0 shadow-sm flex justify-between items-center z-40 border-b border-gray-100">
+            <button onclick="logout()" class="text-gray-400 hover:text-red-500 text-xl p-1"><i class="fa-solid fa-right-from-bracket"></i></button>
+            <h1 class="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">AAS PET Gallery</h1>
+            <div class="flex items-center gap-2">
+                <span id="network-status" class="text-xs px-2.5 py-1 rounded-full font-semibold bg-green-100 text-green-700 flex items-center gap-1"><i class="fa-solid fa-wifi"></i> Online</span>
+                <button onclick="openCameraModal()" class="bg-gray-100 hover:bg-gray-200 text-gray-600 p-2.5 rounded-full"><i class="fa-solid fa-camera"></i></button>
+                <button onclick="document.getElementById('file-picker').click()" class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-full text-sm shadow-md flex items-center gap-1.5 transition"><i class="fa-solid fa-plus"></i> Upload</button>
+                <input type="file" id="file-picker" accept="image/*,video/*,application/pdf,.doc,.docx" class="hidden" multiple onchange="uploadDispatcher(this.files)">
+            </div>
+        </header>
+
+        <!-- Category Tabs -->
+        <div class="bg-white shadow-sm flex justify-around p-3 sticky top-[57px] z-30 border-b border-gray-100">
+            <button onclick="switchTab('photos')" id="tab-photos" class="flex flex-col items-center text-blue-600 font-semibold"><i class="fa-solid fa-image text-xl"></i><span class="text-xs mt-1">Photos</span></button>
+            <button onclick="switchTab('videos')" id="tab-videos" class="flex flex-col items-center text-gray-400"><i class="fa-solid fa-video text-xl"></i><span class="text-xs mt-1">Videos</span></button>
+            <button onclick="switchTab('pdfs')" id="tab-pdfs" class="flex flex-col items-center text-gray-400"><i class="fa-solid fa-file-pdf text-xl"></i><span class="text-xs mt-1">PDFs</span></button>
+            <button onclick="switchTab('docs')" id="tab-docs" class="flex flex-col items-center text-gray-400"><i class="fa-solid fa-folder-open text-xl"></i><span class="text-xs mt-1">Docs</span></button>
+        </div>
+
+        <div id="upload-progress-container" class="hidden bg-gray-200 h-1.5 w-full sticky top-[115px] z-30">
+            <div id="upload-progress-bar" class="bg-blue-500 h-full w-0 transition-all duration-300"></div>
+        </div>
+
+        <main class="p-4 max-w-4xl mx-auto">
+            <div id="content-photos" class="tab-content active"><div id="grid-photos" class="grid grid-cols-3 gap-2 sm:gap-3"></div></div>
+            <div id="content-videos" class="tab-content"><div id="grid-videos" class="grid grid-cols-2 gap-3"></div></div>
+            <div id="content-pdfs" class="tab-content"><div id="grid-pdfs" class="grid grid-cols-1 gap-2"></div></div>
+            <div id="content-docs" class="tab-content"><div id="grid-docs" class="grid grid-cols-1 gap-2"></div></div>
+        </main>
+    </div>
+
+    <!-- Camera Modal -->
+    <div id="camera-modal" class="modal fixed inset-0 bg-black z-50 flex-col justify-between hidden">
+        <div class="flex justify-between items-center text-white w-full px-6 py-4 z-10 bg-gradient-to-b from-black/60 to-transparent absolute top-0 left-0">
+            <button onclick="closeCameraModal()" class="text-2xl p-2"><i class="fa-solid fa-xmark"></i></button>
+            <span class="font-semibold tracking-wide text-sm">Live Camera</span>
+            <button onclick="switchCameraMode()" class="text-2xl p-2 text-white/90"><i class="fa-solid fa-camera-rotate"></i></button>
+        </div>
+        <div class="w-full h-full bg-black relative flex items-center justify-center">
+            <video id="webcam" autoplay playsinline class="w-full h-full object-cover"></video>
+            <canvas id="canvas" class="hidden"></canvas>
+        </div>
+        <div class="absolute bottom-0 left-0 right-0 flex justify-center pb-10 z-10 bg-gradient-to-t from-black/60 to-transparent">
+            <button onclick="capturePhoto()" class="w-20 h-20 bg-white border-[6px] border-black/40 rounded-full active:scale-90 shadow-2xl"></button>
+        </div>
+    </div>
+
+    <!-- Preview Frame Modal -->
+    <div id="preview-modal" class="modal fixed inset-0 bg-black/95 z-50 items-center justify-center hidden p-4" onclick="closePreviewModal()">
+        <div class="w-full max-w-2xl h-[85vh] flex items-center justify-center relative" onclick="event.stopPropagation()">
+            <button onclick="closePreviewModal()" class="absolute -top-12 right-0 text-white text-3xl p-2"><i class="fa-solid fa-xmark"></i></button>
+            <div id="preview-box" class="rounded-xl overflow-hidden shadow-2xl w-full h-full bg-white flex items-center justify-center"></div>
+        </div>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+          apiKey: "AIzaSyACDb4rFTz7LraQOeehsrbuCjLWnmm12yI",
+          authDomain: "afumaphoto.firebaseapp.com",
+          databaseURL: "https://afumaphoto-default-rtdb.firebaseio.com",
+          projectId: "afumaphoto"
+        };
+
+        const IMGBB_API_KEY = "66dcdf21e30733bfd85545d9fb5e76c4"; 
+
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const database = firebase.database();
+
+        let isSignUpMode = false;
+        let currentUserPhone = null;
+        let streamRef = null;
+        let currentFacingMode = "environment"; 
+        let isOnline = navigator.onLine;
+        
+        let selectedAssets = {}; 
+        let currentActiveTab = "photos";
+        let activeDataSnapshot = {}; 
+
+        window.addEventListener('online', () => updateNetworkStatus(true));
+        window.addEventListener('offline', () => updateNetworkStatus(false));
+
+        function updateNetworkStatus(status) {
+            isOnline = status;
+            const indicator = document.getElementById('network-status');
+            if (indicator) {
+                if (status) {
+                    indicator.className = "text-xs px-2.5 py-1 rounded-full font-semibold bg-green-100 text-green-700 flex items-center gap-1";
+                    indicator.innerHTML = `<i class="fa-solid fa-wifi"></i> Online`;
+                } else {
+                    indicator.className = "text-xs px-2.5 py-1 rounded-full font-semibold bg-red-100 text-red-700 flex items-center gap-1";
+                    indicator.innerHTML = `<i class="fa-solid fa-wifi-slash"></i> Offline`;
+                }
+            }
+        }
+
+        window.onload = function() {
+            const savedUser = localStorage.getItem("afuma_user_session");
+            if (savedUser) {
+                currentUserPhone = savedUser;
+                document.getElementById('auth-section').classList.add('hidden');
+                document.getElementById('app-section').classList.remove('hidden');
+                loadUserData();
+            }
+            updateNetworkStatus(navigator.onLine);
+        };
+
+        function toggleAuthMode() {
+            isSignUpMode = !isSignUpMode;
+            document.getElementById('auth-title').innerText = isSignUpMode ? "Create Account" : "Welcome Back";
+            document.getElementById('auth-btn').innerText = isSignUpMode ? "Sign Up" : "Login";
+        }
+
+        function handleAuth() {
+            const phone = document.getElementById('auth-phone').value.trim();
+            const password = document.getElementById('auth-password').value.trim();
+            if (!phone || !password) return alert("Please enter mobile number and password.");
+            const cleanPhone = phone.replace(/[^0-9]/g, "");
+            const virtualEmail = `${cleanPhone}@afuma.com`;
+
+            if (isSignUpMode) {
+                auth.createUserWithEmailAndPassword(virtualEmail, password)
+                .then(() => executeLoginSuccess(cleanPhone)).catch(err => alert("Error: " + err.message));
+            } else {
+                auth.signInWithEmailAndPassword(virtualEmail, password)
+                .then(() => executeLoginSuccess(cleanPhone)).catch(() => alert("Invalid credentials."));
+            }
+        }
+
+        function executeLoginSuccess(phone) {
+            currentUserPhone = phone;
+            localStorage.setItem("afuma_user_session", phone);
+            document.getElementById('auth-section').classList.add('hidden');
+            document.getElementById('app-section').classList.remove('hidden');
+            loadUserData();
+        }
+
+        function logout() {
+            auth.signOut();
+            localStorage.removeItem("afuma_user_session");
+            currentUserPhone = null;
+            document.getElementById('auth-section').className = "min-h-screen flex items-center justify-center p-6 bg-gradient-to-br from-blue-50 to-indigo-100";
+            document.getElementById('app-section').classList.add('hidden');
+        }
+
+        function switchTab(tabName) {
+            currentActiveTab = tabName;
+            clearSelection();
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            const targetContent = document.getElementById('content-' + tabName);
+            if(targetContent) targetContent.classList.add('active');
+            
+            ['photos', 'videos', 'pdfs', 'docs'].forEach(t => {
+                const btn = document.getElementById('tab-' + t);
+                if (btn) btn.className = (t === tabName) ? "flex flex-col items-center text-blue-600 font-semibold" : "flex flex-col items-center text-gray-400";
+            });
+            loadUserData();
+        }
+
+        function handleAssetClick(event, folder, key, url, defaultName) {
+            if (Object.keys(selectedAssets).length > 0) {
+                event.preventDefault();
+                toggleAssetSelection(key, url, defaultName);
+            } else {
+                viewPreview(url, folder.substring(0, folder.length - 1), defaultName);
+            }
+        }
+
+        function handleAssetLongPress(event, folder, key, url, defaultName) {
+            event.preventDefault();
+            toggleAssetSelection(key, url, defaultName);
+        }
+
+        function toggleAssetSelection(key, url, defaultName) {
+            const card = document.getElementById(`card-${key}`);
+            const checkbox = document.getElementById(`check-${key}`);
+            
+            if (selectedAssets[key]) {
+                delete selectedAssets[key];
+                if (card) card.className = card.className.replace(/border-blue-600|bg-blue-50\/50|scale-\[0.98\]/g, '').trim();
+                if (checkbox) checkbox.classList.add('hidden');
+            } else {
+                selectedAssets[key] = { url: url, name: defaultName };
+                if (card) card.classList.add('border-blue-600', 'bg-blue-50/50', 'scale-[0.98]');
+                if (checkbox) checkbox.classList.remove('hidden');
+            }
+            renderSelectionBar();
+        }
+
+        function renderSelectionBar() {
+            const count = Object.keys(selectedAssets).length;
+            const bar = document.getElementById('selection-bar');
+            const countLabel = document.getElementById('selection-count');
+            if (count > 0) {
+                bar.classList.remove('hidden');
+                countLabel.innerText = `${count} Selected`;
+            } else {
+                bar.classList.add('hidden');
+            }
+        }
+
+        function clearSelection() {
+            Object.keys(selectedAssets).forEach(key => {
+                const card = document.getElementById(`card-${key}`);
+                const checkbox = document.getElementById(`check-${key}`);
+                if (card) card.className = card.className.replace(/border-blue-600|bg-blue-50\/50|scale-\[0.98\]/g, '').trim();
+                if (checkbox) checkbox.classList.add('hidden');
+            });
+            selectedAssets = {};
+            renderSelectionBar();
+        }
+
+        function selectAllCurrentTab() {
+            if (!activeDataSnapshot || Object.keys(activeDataSnapshot).length === 0) return;
+            Object.keys(activeDataSnapshot).forEach(key => {
+                const data = activeDataSnapshot[key];
+                const defaultName = data.name || `Asset_${data.timestamp}`;
+                if (!selectedAssets[key]) {
+                    selectedAssets[key] = { url: data.url, name: defaultName };
+                    const card = document.getElementById(`card-${key}`);
+                    const checkbox = document.getElementById(`check-${key}`);
+                    if (card) card.classList.add('border-blue-600', 'bg-blue-50/50', 'scale-[0.98]');
+                    if (checkbox) checkbox.classList.remove('hidden');
+                }
+            });
+            renderSelectionBar();
+        }
+
+        function deleteSelectedAssets() {
+            const count = Object.keys(selectedAssets).length;
+            if (confirm(`Delete ${count} items?`)) {
+                Object.keys(selectedAssets).forEach(key => {
+                    database.ref(`users_vault/${currentUserPhone}/${currentActiveTab}/${key}`).remove();
+                });
+                clearSelection();
+            }
+        }
+
+        async function shareSelectedAssets() {
+            const keys = Object.keys(selectedAssets);
+            if (keys.length === 0) return;
+            let linkText = keys.map(k => selectedAssets[k].url).join('\n');
+            if(navigator.share) {
+                navigator.share({ text: linkText }).then(() => clearSelection()).catch(() => console.log("Shared"));
+            } else {
+                alert("Links:\n" + linkText);
+            }
+        }
+
+        function getVideoDuration(file) {
+            return new Promise((resolve) => {
+                const videoElement = document.createElement('video');
+                videoElement.preload = 'metadata';
+                videoElement.src = URL.createObjectURL(file);
+                videoElement.onloadedmetadata = function() {
+                    window.URL.revokeObjectURL(videoElement.src);
+                    resolve(videoElement.duration);
+                };
+                videoElement.onerror = function() { resolve(0); };
+            });
+        }
+
+        async function uploadDispatcher(fileList) {
+            if (!fileList || fileList.length === 0 || !currentUserPhone) return;
+            const progressContainer = document.getElementById('upload-progress-container');
+            const progressBar = document.getElementById('upload-progress-bar');
+            
+            let filesToProcess = [];
+            for (let i = 0; i < fileList.length; i++) {
+                let file = fileList[i];
+                if (file.type.startsWith('video/')) {
+                    let durationInSeconds = await getVideoDuration(file);
+                    if (durationInSeconds > 1200) { 
+                        alert(`ویڈیو "${file.name}" ۲۰ منٹ سے زیادہ ہے، اس لیے یہ اپلوڈ نہیں ہو سکتی۔`);
+                        continue;
+                    }
+                }
+                filesToProcess.push(file);
+            }
+
+            if (filesToProcess.length === 0) return;
+
+            progressContainer.classList.remove('hidden');
+            progressBar.style.width = '0%';
+            let totalFiles = filesToProcess.length;
+            let lastFolderDetected = "photos";
+
+            for (let i = 0; i < totalFiles; i++) {
+                let file = filesToProcess[i];
+                let folder = folderSelector(file.type);
+                lastFolderDetected = folder;
+
+                if (folder === "photos") { 
+                    await uploadImageFreeSync(file); 
+                } else { 
+                    await uploadGenericFileFreeSync(file); 
+                }
+                
+                progressBar.style.width = `${Math.round(((i + 1) / totalFiles) * 100)}%`;
+            }
+
+            setTimeout(() => { progressContainer.classList.add('hidden'); switchTab(lastFolderDetected); }, 800);
+        }
+
+        function uploadImageFreeSync(file) {
+            return new Promise((resolve) => {
+                const formData = new FormData();
+                formData.append("image", file);
+                fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, { method: "POST", body: formData })
+                .then(res => res.json()).then(response => {
+                    if(response && response.success && response.data) {
+                        database.ref(`users_vault/${currentUserPhone}/photos`).push({ name: file.name, url: response.data.url, timestamp: Date.now() });
+                    }
+                    resolve();
+                }).catch(() => resolve());
+            });
+        }
+
+        function uploadGenericFileFreeSync(file) {
+            return new Promise((resolve) => {
+                let folder = folderSelector(file.type);
+                const formData = new FormData();
+                formData.append("reqtype", "fileupload");
+                formData.append("fileToUpload", file);
+
+                fetch("https://api.allorigins.win/raw?url=https://catbox.moe/user/api.php", { method: "POST", body: formData })
+                .then(res => res.text()).then(fileUrl => {
+                    if(fileUrl && fileUrl.startsWith('http')) {
+                        database.ref(`users_vault/${currentUserPhone}/${folder}`).push({ name: file.name, url: fileUrl, timestamp: Date.now() });
+                    } else {
+                        fetch("https://corsproxy.io/?url=https://catbox.moe/user/api.php", { method: "POST", body: formData })
+                        .then(r => r.text()).then(backupUrl => {
+                            if(backupUrl && backupUrl.startsWith('http')) {
+                                database.ref(`users_vault/${currentUserPhone}/${folder}`).push({ name: file.name, url: backupUrl, timestamp: Date.now() });
+                            }
+                            resolve();
+                        }).catch(() => resolve());
+                        return;
+                    }
+                    resolve();
+                }).catch(() => resolve());
+            });
+        }
+
+        function folderSelector(type) {
+            if (type.startsWith('image/')) return "photos";
+            if (type.startsWith('video/')) return "videos";
+            return "pdfs";
+        }
+
+        async function startCamera() {
+            if (streamRef) streamRef.getTracks().forEach(track => track.stop());
+            const videoElement = document.getElementById('webcam');
+            try {
+                streamRef = await navigator.mediaDevices.getUserMedia({ video: { facingMode: currentFacingMode }, audio: false });
+                videoElement.srcObject = streamRef;
+                videoElement.onloadedmetadata = () => videoElement.play();
+            } catch (err) { alert("Camera setup failed."); }
+        }
+
+        function openCameraModal() { document.getElementById('camera-modal').classList.add('active'); startCamera(); }
+        function switchCameraMode() { currentFacingMode = (currentFacingMode === "environment") ? "user" : "environment"; startCamera(); }
+        function closeCameraModal() { if (streamRef) streamRef.getTracks().forEach(track => track.stop()); document.getElementById('camera-modal').classList.remove('active'); }
+
+        function capturePhoto() {
+            const video = document.getElementById('webcam');
+            const canvas = document.getElementById('canvas');
+            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+            canvas.toBlob(blob => {
+                const capturedFile = new File([blob], `Snapshot_${Date.now()}.jpg`, { type: "image/jpeg" });
+                closeCameraModal();
+                uploadDispatcher([capturedFile]);
+            }, 'image/jpeg');
+        }
+
+        function loadUserData() {
+            if (!currentUserPhone) return;
+            database.ref(`users_vault/${currentUserPhone}/${currentActiveTab}`).on('value', snapshot => {
+                const grid = document.getElementById(`grid-${currentActiveTab}`);
+                if (!grid) return;
+                grid.innerHTML = '';
+                
+                activeDataSnapshot = snapshot.exists() ? snapshot.val() : {};
+
+                if (!snapshot.exists()) {
+                    grid.innerHTML = `<div class="col-span-full text-center text-gray-400 py-12">No items found.</div>`;
+                    return;
+                }
+                buildUiGridElements(activeDataSnapshot, currentActiveTab, grid);
+            });
+        }
+
+        function formatTimestampToDateTime(ts) {
+            if (!ts) return { date: '', time: '' };
+            const d = new Date(ts);
+            return { 
+                date: `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`, 
+                time: `${d.getHours() % 12 || 12}:${d.getMinutes().toString().padStart(2, '0')} ${d.getHours() >= 12 ? 'PM' : 'AM'}` 
+            };
+        }
+
+        function buildUiGridElements(dataObject, folder, gridContainer) {
+            Object.keys(dataObject).forEach(key => {
+                const data = dataObject[key];
+                const defaultName = data.name || `Asset_${data.timestamp}`;
+                const timeData = formatTimestampToDateTime(data.timestamp);
+                
+                const dateTimeFooter = `
+                    <div class="absolute bottom-0 left-0 right-0 bg-black/70 text-white text-[10px] px-2 py-1 flex justify-between items-center pointer-events-none z-10">
+                        <span><i class="fa-solid fa-calendar-days text-[9px] mr-0.5"></i> ${timeData.date}</span>
+                        <span>${timeData.time} <i class="fa-solid fa-clock text-[9px] ml-0.5"></i></span>
+                    </div>`;
+
+                const checkElement = `<span id="check-${key}" class="hidden absolute top-2 left-2 bg-blue-600 text-white text-xs w-6 h-6 rounded-full flex items-center justify-center shadow-md z-20"><i class="fa-solid fa-check"></i></span>`;
+
+                if (folder === 'photos') {
+                    gridContainer.innerHTML += `<div id="card-${key}" class="asset-card relative aspect-square rounded-2xl overflow-hidden border border-transparent shadow-sm bg-gray-200" 
+                        onclick="handleAssetClick(event, '${folder}', '${key}', '${data.url}', '${defaultName}')" 
+                        oncontextmenu="handleAssetLongPress(event, '${folder}', '${key}', '${data.url}', '${defaultName}')">
+                        ${checkElement}
+                        <img src="${data.url}" class="w-full h-full object-cover pointer-events-none pb-5 bg-black">
+                        ${dateTimeFooter}
+                    </div>`;
+                } else if (folder === 'videos') {
+                    gridContainer.innerHTML += `<div id="card-${key}" class="asset-card relative aspect-video rounded-2xl overflow-hidden border border-transparent shadow-sm bg-black" 
+                        onclick="handleAssetClick(event, '${folder}', '${key}', '${data.url}', '${defaultName}')" 
+                        oncontextmenu="handleAssetLongPress(event, '${folder}', '${key}', '${data.url}', '${defaultName}')">
+                        ${checkElement}
+                        <video src="${data.url}" class="w-full h-full object-cover block pb-6" controls preload="metadata"></video>
+                        ${dateTimeFooter}
+                    </div>`;
+                } else {
+                    gridContainer.innerHTML += `<div id="card-${key}" class="asset-card flex flex-col p-3 bg-white rounded-2xl border border-gray-100 shadow-sm w-full relative min-h-[85px]" 
+                        onclick="handleAssetClick(event, '${folder}', '${key}', '${data.url}', '${defaultName}')" 
+                        oncontextmenu="handleAssetLongPress(event, '${folder}', '${key}', '${data.url}', '${defaultName}')">
+                        ${checkElement}
+                        <div class="flex items-center gap-3 min-w-0 pb-6">
+                            <i class="fa-solid fa-file-pdf text-red-500 text-2xl flex-shrink-0"></i>
+                            <span class="text-sm font-semibold text-gray-700 truncate max-w-[220px]">${defaultName}</span>
+                        </div>
+                        ${dateTimeFooter}
+                    </div>`;
+                }
+            });
+        }
+
+        function viewPreview(url, type, fileName) {
+            if (type === 'photo') { 
+                const modal = document.getElementById('preview-modal');
+                const box = document.getElementById('preview-box');
+                box.innerHTML = `<img src="${url}" class="w-full h-full object-contain rounded-xl bg-black">`; 
+                modal.classList.remove('hidden'); modal.classList.add('active');
+            } else { 
+                window.open(url, '_blank');
+            }
+        }
+
+        function closePreviewModal() { 
+            document.getElementById('preview-modal').classList.remove('active'); 
+            document.getElementById('preview-box').innerHTML = ''; 
+        }
+    </script>
+</body>
+</html>
