@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AAS PET Premium Gallery</title>
+    <title>AFUMA PHOTO & VAULT ULTRA MAX</title>
     
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -12,36 +12,31 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.3/html2pdf.bundle.min.js"></script>
+
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
         body { font-family: 'Poppins', sans-serif; -webkit-tap-highlight-color: transparent; }
-        .tab-content { display: none; }
-        .tab-content.active { display: block; }
         .modal { display: none; }
         .modal.active { display: flex; }
         .asset-card.selected { border-color: #2563eb; background-color: #eff6ff; }
+        .nav-tab.active { color: #2563eb; border-bottom: 3px solid #2563eb; font-weight: 700; }
+        .color-dot.active { border-color: #1e3a8a; transform: scale(1.1); }
     </style>
 </head>
-<body class="bg-gray-100 text-gray-900 select-none">
+<body class="bg-gray-50 text-gray-900 select-none">
 
     <div id="auth-section" class="min-h-screen flex items-center justify-center p-6 bg-gradient-to-br from-blue-50 to-indigo-100">
         <div class="bg-white p-8 rounded-3xl shadow-2xl w-full max-w-md text-center border border-gray-100">
             <div class="w-full flex justify-center mb-6">
-                <img src="https://i.ibb.co/B2cJtFx4/75994.png" alt="Afuma Gallery Logo" class="w-48 h-auto object-contain rounded-2xl p-2">
+                <img src="https://i.ibb.co/B2cJtFx4/75994.png" alt="Aas Pet Logo" class="w-48 h-auto object-contain rounded-2xl p-2">
             </div>
             <h2 id="auth-title" class="text-2xl font-bold mb-1 text-gray-800">Welcome Back</h2>
             <p id="auth-subtitle" class="text-gray-400 text-sm mb-6">Access your secure vault</p>
             <div class="space-y-4">
-                <div class="relative">
-                    <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400"><i class="fa-solid fa-phone"></i></span>
-                    <input type="tel" id="auth-phone" placeholder="Enter Mobile Number" class="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none">
-                </div>
-                <div class="relative">
-                    <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400"><i class="fa-solid fa-lock"></i></span>
-                    <input type="password" id="auth-password" placeholder="Password" class="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none">
-                </div>
+                <input type="tel" id="auth-phone" placeholder="Enter Mobile Number" class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                <input type="password" id="auth-password" placeholder="Password" class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none">
                 <button onclick="handleAuth()" id="auth-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl shadow-lg transition active:scale-[0.98]">Login</button>
-                <p id="auth-toggle" onclick="toggleAuthMode()" class="text-sm text-blue-500 font-medium cursor-pointer hover:underline">Don't have an account? Sign Up</p>
             </div>
         </div>
     </div>
@@ -53,63 +48,117 @@
                 <button onclick="clearSelection()" class="text-white text-xl p-1"><i class="fa-solid fa-xmark"></i></button>
                 <span id="selection-count" class="font-semibold text-sm">1 selected</span>
             </div>
-            <div class="flex items-center gap-3">
-                <button onclick="selectAllCurrentTab()" class="text-xs font-semibold bg-blue-700 px-3 py-1.5 rounded-lg border border-blue-400 hover:bg-blue-800 transition">Select All</button>
-                <button onclick="shareSelectedAssets()" class="text-lg p-2 hover:bg-blue-700 rounded-full transition"><i class="fa-solid fa-share-nodes"></i></button>
+            <div class="flex items-center gap-2">
+                <button onclick="selectAllAssets()" class="text-xs font-semibold bg-blue-700 px-2.5 py-1.5 rounded-lg border border-blue-400">All</button>
+                <button onclick="openMoveToFolderModal()" class="text-lg p-2" title="Move to Folder"><i class="fa-solid fa-folder-plus"></i></button>
+                <button onclick="shareSelectedAssets()" class="text-lg p-2"><i class="fa-solid fa-share-nodes"></i></button>
                 <button onclick="deleteSelectedAssets()" class="text-lg p-2 hover:bg-red-600 rounded-full transition"><i class="fa-solid fa-trash-can"></i></button>
             </div>
         </div>
 
         <header id="main-header" class="bg-white px-4 py-3 sticky top-0 shadow-sm flex justify-between items-center z-40 border-b border-gray-100">
             <button onclick="logout()" class="text-gray-400 hover:text-red-500 text-xl p-1"><i class="fa-solid fa-right-from-bracket"></i></button>
-            <h1 class="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">AAS PET Gallery</h1>
-            <div class="flex items-center gap-2">
-                <button onclick="openCameraModal()" class="bg-gray-100 hover:bg-gray-200 text-gray-600 p-2.5 rounded-full"><i class="fa-solid fa-camera"></i></button>
+            <h1 class="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">AFUMA Vault</h1>
+            
+            <div id="photo-actions" class="flex items-center gap-2">
+                <button onclick="document.getElementById('camera-picker').click()" class="bg-gray-100 hover:bg-gray-200 text-gray-600 p-2.5 rounded-full"><i class="fa-solid fa-camera"></i></button>
+                <input type="file" id="camera-picker" accept="image/*" capture="environment" class="hidden" onchange="uploadDispatcher(this.files)">
+
                 <button onclick="document.getElementById('file-picker').click()" class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-full text-sm shadow-md flex items-center gap-1.5 transition"><i class="fa-solid fa-plus"></i> Upload</button>
-                <input type="file" id="file-picker" accept="image/*,video/*" class="hidden" multiple onchange="uploadDispatcher(this.files)">
+                <input type="file" id="file-picker" accept="image/*" class="hidden" multiple onchange="uploadDispatcher(this.files)">
             </div>
         </header>
 
-        <div class="bg-white shadow-sm flex justify-around p-3 sticky top-[57px] z-30 border-b border-gray-100">
-            <button onclick="switchTab('photos')" id="tab-photos" class="flex flex-col items-center text-blue-600 font-semibold"><i class="fa-solid fa-image text-xl"></i><span class="text-xs mt-1">Photos</span></button>
-            <button onclick="switchTab('videos')" id="tab-videos" class="flex flex-col items-center text-gray-400"><i class="fa-solid fa-video text-xl"></i><span class="text-xs mt-1">Videos</span></button>
+        <div id="upload-progress-container" class="hidden bg-gray-200 h-1.5 w-full sticky top-0 z-30">
+            <div id="upload-progress-bar" class="bg-blue-500 h-full w-0 transition-all duration-300"></div>
+        </div>
+        <div id="upload-status-text" class="hidden text-center text-xs font-semibold text-blue-600 bg-blue-50 py-1 sticky top-2 z-30 shadow-sm">Uploading Photo...</div>
+
+        <div class="max-w-4xl mx-auto flex border-b border-gray-200 bg-white shadow-sm">
+            <button onclick="switchTab('photos')" id="tab-photos" class="nav-tab active flex-1 text-center py-3.5 font-medium text-sm border-b-2 border-transparent transition">
+                <i class="fa-solid fa-images mr-1"></i> Gallery
+            </button>
+            <button onclick="switchTab('notes')" id="tab-notes" class="nav-tab flex-1 text-center py-3.5 font-medium text-sm border-b-2 border-transparent transition">
+                <i class="fa-solid fa-book-bookmark mr-1"></i> Notepad 📒
+            </button>
         </div>
 
-        <div id="upload-progress-container" class="hidden bg-gray-200 h-1.5 w-full sticky top-[115px] z-30">
-            <div id="upload-progress-bar" class="bg-blue-500 h-full w-0"></div>
+        <div id="section-photos" class="p-4 max-w-4xl mx-auto space-y-4">
+            
+            <div id="folder-creation-bar" class="flex items-center justify-between bg-white p-3 rounded-2xl shadow-sm border border-gray-100">
+                <div class="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                    <span id="current-folder-title"><i class="fa-solid fa-folder-open text-amber-500 mr-1"></i> Main Gallery</span>
+                </div>
+                <button onclick="createNewFolderPrompt()" class="bg-amber-500 hover:bg-amber-600 text-white text-xs font-medium px-3 py-2 rounded-xl flex items-center gap-1 shadow-sm transition">
+                    <i class="fa-solid fa-folder-plus"></i> New Folder
+                </button>
+            </div>
+
+            <div id="folders-grid" class="grid grid-cols-2 sm:grid-cols-4 gap-3"></div>
+
+            <div id="grid-assets" class="grid grid-cols-3 gap-2 sm:gap-3"></div>
         </div>
 
-        <main class="p-4 max-w-4xl mx-auto">
-            <div id="content-photos" class="tab-content active"><div id="grid-photos" class="grid grid-cols-3 gap-2 sm:gap-3"></div></div>
-            <div id="content-videos" class="tab-content"><div id="grid-videos" class="grid grid-cols-2 gap-3"></div></div>
-        </main>
+        <div id="section-notes" class="hidden p-4 max-w-xl mx-auto space-y-4">
+            <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 space-y-3">
+                <input type="text" id="note-title" placeholder="Note Title..." class="w-full font-bold text-base outline-none border-b border-gray-100 pb-2">
+                <textarea id="note-body" placeholder="Write your content here (No limit)..." rows="4" class="w-full text-sm text-gray-600 outline-none resize-none"></textarea>
+                
+                <div class="flex items-center justify-between pt-2">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs text-gray-400 font-medium">Page Color:</span>
+                        <button onclick="selectNoteColor('bg-white', this)" class="color-dot w-6 h-6 rounded-full bg-white border-2 border-gray-300 active:scale-95 active" title="White"></button>
+                        <button onclick="selectNoteColor('bg-amber-50', this)" class="color-dot w-6 h-6 rounded-full bg-amber-100 border-2 border-transparent active:scale-95" title="Yellow"></button>
+                        <button onclick="selectNoteColor('bg-sky-50', this)" class="color-dot w-6 h-6 rounded-full bg-sky-100 border-2 border-transparent active:scale-95" title="Blue"></button>
+                        <button onclick="selectNoteColor('bg-emerald-50', this)" class="color-dot w-6 h-6 rounded-full bg-emerald-100 border-2 border-transparent active:scale-95" title="Green"></button>
+                        <button onclick="selectNoteColor('bg-rose-50', this)" class="color-dot w-6 h-6 rounded-full bg-rose-100 border-2 border-transparent active:scale-95" title="Pink"></button>
+                    </div>
+                    <button onclick="saveNote()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-4 py-2 rounded-xl shadow-md"><i class="fa-solid fa-floppy-disk mr-1"></i> Save Note</button>
+                </div>
+            </div>
+            <div id="notes-list" class="space-y-3"></div>
+        </div>
     </div>
 
-    <div id="camera-modal" class="modal fixed inset-0 bg-black z-50 flex-col justify-between hidden">
-        <div class="flex justify-between items-center text-white w-full px-6 py-4 z-10 bg-gradient-to-b from-black/60 to-transparent absolute top-0 left-0">
-            <button onclick="closeCameraModal()" class="text-2xl p-2"><i class="fa-solid fa-xmark"></i></button>
-            <span id="camera-mode-status" class="font-semibold tracking-wide text-sm text-green-400">Photo Mode</span>
-            <button onclick="switchCameraMode()" class="text-2xl p-2 text-white/90"><i class="fa-solid fa-camera-rotate"></i></button>
-        </div>
-        <div class="w-full h-full bg-black relative flex items-center justify-center">
-            <video id="webcam" autoplay playsinline class="w-full h-full object-cover" muted></video>
-            <canvas id="canvas" class="hidden"></canvas>
-        </div>
-        <div class="absolute bottom-0 left-0 right-0 flex flex-col items-center gap-4 pb-10 z-10 bg-gradient-to-t from-black/80 to-transparent">
-            <div class="flex gap-6 text-white text-xs font-semibold tracking-wide">
-                <button onclick="setCameraCaptureType('photo')" id="btn-mode-photo" class="text-blue-400 border-b-2 border-blue-400 pb-1 font-bold">PHOTO</button>
-                <button onclick="setCameraCaptureType('video')" id="btn-mode-video" class="text-gray-400 pb-1">VIDEO</button>
-            </div>
-            <div class="flex justify-center items-center relative w-24 h-24">
-                <button onclick="triggerCameraCapture()" id="capture-trigger-btn" class="w-16 h-16 bg-white rounded-full border-4 border-black/40 shadow-2xl"></button>
-            </div>
+    <div id="folder-select-modal" class="modal fixed inset-0 bg-black/50 z-50 items-center justify-center hidden p-4" onclick="closeFolderSelectModal()">
+        <div class="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl relative" onclick="event.stopPropagation()">
+            <button onclick="closeFolderSelectModal()" class="absolute top-4 right-4 text-gray-400 text-lg"><i class="fa-solid fa-xmark"></i></button>
+            <h3 class="font-bold text-base text-gray-800 mb-4"><i class="fa-solid fa-folder-tree text-amber-500 mr-1"></i> Select Target Folder</h3>
+            <div id="modal-folders-list" class="space-y-2 max-h-60 overflow-y-auto pr-1"></div>
         </div>
     </div>
 
     <div id="preview-modal" class="modal fixed inset-0 bg-black/95 z-50 items-center justify-center hidden p-4" onclick="closePreviewModal()">
-        <div class="w-full max-w-2xl h-[85vh] flex items-center justify-center relative" onclick="event.stopPropagation()">
+        <div class="w-full max-w-2xl h-[85vh] flex flex-col items-center justify-center relative" onclick="event.stopPropagation()">
             <button onclick="closePreviewModal()" class="absolute -top-12 right-0 text-white text-3xl p-2"><i class="fa-solid fa-xmark"></i></button>
-            <div id="preview-box" class="rounded-xl overflow-hidden shadow-2xl w-full h-full bg-white flex items-center justify-center"></div>
+            <div id="preview-box" class="rounded-xl overflow-hidden shadow-2xl w-full h-[70vh] bg-black flex items-center justify-center"></div>
+            <div id="preview-actions" class="w-full flex justify-center gap-4 mt-4 z-50"></div>
+        </div>
+    </div>
+
+    <div id="note-view-modal" class="modal fixed inset-0 bg-black/50 z-50 items-center justify-center hidden p-4" onclick="closeNoteViewModal()">
+        <div id="note-view-card" class="w-full max-w-lg rounded-3xl shadow-2xl p-6 flex flex-col justify-between max-h-[85vh] relative transition-all" onclick="event.stopPropagation()">
+            <button onclick="closeNoteViewModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-xl p-1"><i class="fa-solid fa-xmark"></i></button>
+            
+            <div id="note-print-area" class="overflow-y-auto pr-1 flex-1 mb-6 mt-4 p-2 rounded-xl bg-inherit">
+                <h2 id="note-view-title" class="text-xl font-bold border-b border-gray-300 pb-2 text-gray-900"></h2>
+                <p id="note-view-body" class="text-sm text-gray-700 whitespace-pre-wrap pt-4 leading-relaxed tracking-wide font-normal bg-transparent"></p>
+                <span id="note-view-date" class="text-[10px] text-gray-400 block pt-6 font-medium"></span>
+            </div>
+
+            <div class="flex items-center justify-between border-t border-gray-200 pt-4 bg-transparent">
+                <button id="note-view-delete-btn" class="bg-red-50 hover:bg-red-100 text-red-600 font-semibold text-xs px-4 py-2.5 rounded-xl transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-trash-can"></i> Delete
+                </button>
+                <div class="flex items-center gap-2">
+                    <button id="note-view-pdf-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs px-4 py-2.5 rounded-xl shadow-md transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-file-pdf"></i> PDF 📄
+                    </button>
+                    <button id="note-view-share-btn" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs px-4 py-2.5 rounded-xl shadow-md transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-share-nodes"></i> Share
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -126,214 +175,339 @@
         const database = firebase.database();
         const auth = firebase.auth();
 
-        let isSignUpMode = false, currentUserPhone = null, streamRef = null, currentFacingMode = "environment"; 
-        let selectedAssets = {}, currentActiveTab = "photos", activeDataSnapshot = {}; 
-        let cameraCaptureMode = "photo", mediaRecorderRef = null, recordedChunks = [], recordingSeconds = 0, timerIntervalRef = null;
+        let currentUserPhone = null;
+        let selectedAssets = {}, activeDataSnapshot = {}, currentActiveTab = "photos"; 
+        let selectedColorClass = "bg-white"; 
+        
+        let currentFolderScope = "root"; // 'root' یا فولڈر کی آئی ڈی
+        let userFoldersData = {};
+
+        window.addEventListener('popstate', function (event) {
+            if (document.getElementById('folder-select-modal').classList.contains('active')) {
+                event.preventDefault(); closeFolderSelectModal(); return;
+            }
+            if (document.getElementById('note-view-modal').classList.contains('active')) {
+                event.preventDefault(); closeNoteViewModal(); return;
+            }
+            if (document.getElementById('preview-modal').classList.contains('active')) {
+                event.preventDefault(); closePreviewModal(); return;
+            }
+            if (currentFolderScope !== "root") {
+                event.preventDefault();
+                navigateToFolder("root");
+                return;
+            }
+        });
+
+        function pushModalState() { window.history.pushState({ modalOpen: true }, ""); }
 
         window.onload = function() {
             const savedUser = localStorage.getItem("afuma_user_session");
             if (savedUser) { currentUserPhone = savedUser; document.getElementById('auth-section').classList.add('hidden'); document.getElementById('app-section').classList.remove('hidden'); loadUserData(); }
         };
 
-        function toggleAuthMode() { isSignUpMode = !isSignUpMode; document.getElementById('auth-title').innerText = isSignUpMode ? "Create Account" : "Welcome Back"; document.getElementById('auth-btn').innerText = isSignUpMode ? "Sign Up" : "Login"; }
-
         function handleAuth() {
             const phone = document.getElementById('auth-phone').value.trim(), password = document.getElementById('auth-password').value.trim();
             if (!phone || !password) return alert("Please fill fields.");
             const cleanPhone = phone.replace(/[^0-9]/g, ""), virtualEmail = `${cleanPhone}@afuma.com`;
-            if (isSignUpMode) {
+            auth.signInWithEmailAndPassword(virtualEmail, password).then(() => executeLoginSuccess(cleanPhone)).catch(() => {
                 auth.createUserWithEmailAndPassword(virtualEmail, password).then(() => executeLoginSuccess(cleanPhone)).catch(err => alert(err.message));
-            } else {
-                auth.signInWithEmailAndPassword(virtualEmail, password).then(() => executeLoginSuccess(cleanPhone)).catch(() => alert("Invalid credentials."));
-            }
+            });
         }
 
         function executeLoginSuccess(phone) { currentUserPhone = phone; localStorage.setItem("afuma_user_session", phone); document.getElementById('auth-section').classList.add('hidden'); document.getElementById('app-section').classList.remove('hidden'); loadUserData(); }
         function logout() { auth.signOut(); localStorage.removeItem("afuma_user_session"); window.location.reload(); }
 
-        function switchTab(tabName) { currentActiveTab = tabName; clearSelection(); document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active')); document.getElementById('content-' + tabName).classList.add('active'); loadUserData(); }
+        function switchTab(tabId) {
+            currentActiveTab = tabId;
+            document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
+            document.getElementById(`tab-${tabId}`).classList.add('active');
+            document.getElementById('section-photos').classList.toggle('hidden', tabId !== 'photos');
+            document.getElementById('photo-actions').classList.toggle('hidden', tabId !== 'photos');
+            document.getElementById('section-notes').classList.toggle('hidden', tabId !== 'notes');
+            clearSelection();
+        }
 
-        function handleAssetClick(event, folder, key, url, defaultName) { if (Object.keys(selectedAssets).length > 0) { event.preventDefault(); toggleAssetSelection(key, url, defaultName); } else { viewPreview(url, folder.substring(0, folder.length - 1), defaultName); } }
-        function handleAssetLongPress(event, folder, key, url, defaultName) { event.preventDefault(); toggleAssetSelection(key, url, defaultName); }
+        function selectNoteColor(colorClass, element) {
+            selectedColorClass = colorClass;
+            document.querySelectorAll('.color-dot').forEach(dot => dot.classList.remove('active', 'border-blue-900'));
+            element.classList.add('active');
+        }
 
-        function toggleAssetSelection(key, url, defaultName) {
+        /* 📂 فولڈر مینجمنٹ انجن لاجک */
+        function createNewFolderPrompt() {
+            const name = prompt("Enter new folder name:");
+            if (!name || name.trim() === "") return;
+            database.ref(`users_vault/${currentUserPhone}/folders`).push({
+                name: name.trim(),
+                timestamp: Date.now()
+            });
+        }
+
+        function navigateToFolder(scope) {
+            currentFolderScope = scope;
+            const titleEl = document.getElementById('current-folder-title');
+            if (scope === "root") {
+                titleEl.innerHTML = `<i class="fa-solid fa-folder-open text-amber-500 mr-1"></i> Main Gallery`;
+                document.getElementById('folders-grid').classList.remove('hidden');
+            } else {
+                const fName = userFoldersData[scope] ? userFoldersData[scope].name : "Folder";
+                titleEl.innerHTML = `<button onclick="navigateToFolder('root')" class="text-blue-600 font-bold mr-2"><i class="fa-solid fa-chevron-left"></i> Back</button> <i class="fa-solid fa-folder-open text-amber-500 mr-1"></i> ${fName}`;
+                document.getElementById('folders-grid').classList.add('hidden');
+            }
+            clearSelection();
+            renderPhotosGrid();
+        }
+
+        function openMoveToFolderModal() {
+            const listContainer = document.getElementById('modal-folders-list');
+            listContainer.innerHTML = '';
+            
+            // روٹ کا آپشن (فولڈر سے باہر نکالنے کے لیے)
+            listContainer.innerHTML += `<button onclick="moveSelectedAssetsToFolder('root')" class="w-full text-left p-3 rounded-xl bg-gray-50 border border-gray-200 text-xs font-semibold text-gray-700 hover:bg-blue-50 block"><i class="fa-solid fa-images text-blue-500 mr-1"></i> Move to Main Gallery (Root)</button>`;
+
+            Object.keys(userFoldersData).forEach(id => {
+                listContainer.innerHTML += `<button onclick="moveSelectedAssetsToFolder('${id}')" class="w-full text-left p-3 rounded-xl bg-gray-50 border border-gray-200 text-xs font-semibold text-gray-700 hover:bg-amber-50 block truncate"><i class="fa-solid fa-folder text-amber-500 mr-1"></i> ${userFoldersData[id].name}</button>`;
+            });
+            document.getElementById('folder-select-modal').classList.add('active');
+            pushModalState();
+        }
+
+        function closeFolderSelectModal() { document.getElementById('folder-select-modal').classList.remove('active'); }
+
+        function moveSelectedAssetsToFolder(folderId) {
+            Object.keys(selectedAssets).forEach(key => {
+                database.ref(`users_vault/${currentUserPhone}/photos/${key}`).update({
+                    folderId: folderId
+                });
+            });
+            closeFolderSelectModal();
+            clearSelection();
+        }
+
+        function deleteFolder(folderId, name) {
+            if (confirm(`Are you sure you want to delete folder "${name}"? Inside photos will stay safe in Main Gallery.`)) {
+                // فولڈر کی تصویروں کو واپس روٹ پر لے آئیں
+                Object.keys(activeDataSnapshot).forEach(key => {
+                    if (activeDataSnapshot[key].folderId === folderId) {
+                        database.ref(`users_vault/${currentUserPhone}/photos/${key}`).update({ folderId: 'root' });
+                    }
+                });
+                database.ref(`users_vault/${currentUserPhone}/folders/${folderId}`).remove();
+            }
+        }
+
+        /* 📸 گیلری سلیکشن اور رینڈرنگ */
+        function handleAssetClick(event, key, url, name) { if (Object.keys(selectedAssets).length > 0) { event.preventDefault(); toggleAssetSelection(key, url, name); } else { viewPreview(url, name); } }
+        function handleAssetLongPress(event, key, url, name) { event.preventDefault(); toggleAssetSelection(key, url, name); }
+
+        function toggleAssetSelection(key, url, name) {
             const card = document.getElementById(`card-${key}`), checkbox = document.getElementById(`check-${key}`);
             if (selectedAssets[key]) {
                 delete selectedAssets[key]; card.className = card.className.replace(/border-blue-600|bg-blue-50\/50/g, '').trim(); checkbox.classList.add('hidden');
             } else {
-                selectedAssets[key] = { url: url, name: defaultName }; card.classList.add('border-blue-600', 'bg-blue-50/50'); checkbox.classList.remove('hidden');
+                selectedAssets[key] = { url: url, name: name }; card.classList.add('border-blue-600', 'bg-blue-50/50'); checkbox.classList.remove('hidden');
             }
             renderSelectionBar();
         }
 
         function renderSelectionBar() { const count = Object.keys(selectedAssets).length; document.getElementById('selection-bar').classList.toggle('hidden', count === 0); document.getElementById('selection-count').innerText = `${count} Selected`; }
         function clearSelection() { Object.keys(selectedAssets).forEach(key => { const card = document.getElementById(`card-${key}`), checkbox = document.getElementById(`check-${key}`); if (card) card.className = card.className.replace(/border-blue-600|bg-blue-50\/50/g, '').trim(); if (checkbox) checkbox.classList.add('hidden'); }); selectedAssets = {}; renderSelectionBar(); }
-        function selectAllCurrentTab() { Object.keys(activeDataSnapshot).forEach(key => { const data = activeDataSnapshot[key]; if (!selectedAssets[key]) toggleAssetSelection(key, data.url, data.name || "Asset"); }); }
-
-        function deleteSelectedAssets() { if (confirm("Delete selected items?")) { Object.keys(selectedAssets).forEach(key => database.ref(`users_vault/${currentUserPhone}/${currentActiveTab}/${key}`).remove()); clearSelection(); } }
+        function selectAllAssets() { Object.keys(activeDataSnapshot).forEach(key => { let item = activeDataSnapshot[key]; let itemScope = item.folderId || "root"; if (itemScope === currentFolderScope && !selectedAssets[key]) toggleAssetSelection(key, item.url, item.name || "Photo"); }); }
+        function deleteSelectedAssets() { if (confirm("Delete selected photo(s)?")) { Object.keys(selectedAssets).forEach(key => database.ref(`users_vault/${currentUserPhone}/photos/${key}`).remove()); clearSelection(); } }
 
         async function shareSelectedAssets() {
             const keys = Object.keys(selectedAssets); if (keys.length === 0) return;
-            let linkText = keys.map(k => selectedAssets[k].url).join('\n');
-            if (window.AndroidShare) { window.AndroidShare.shareText(linkText); clearSelection(); } 
-            else if (navigator.share) { navigator.share({ text: linkText }).then(() => clearSelection()); }
+            let target = selectedAssets[keys[0]];
+            document.getElementById('upload-progress-container').classList.remove('hidden');
+            try {
+                let response = await fetch(target.url);
+                let blob = await response.blob();
+                let file = new File([blob], target.name || `AFUMA_Image.jpg`, { type: blob.type || "image/jpeg" });
+                document.getElementById('upload-progress-container').classList.add('hidden');
+
+                if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+                    await navigator.share({ files: [file], title: 'Share Image' });
+                    clearSelection(); return;
+                }
+            } catch (e) {}
+            document.getElementById('upload-progress-container').classList.add('hidden');
+            window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(target.url)}`, '_blank');
+            clearSelection();
         }
 
-        function getVideoDuration(file) { return new Promise((resolve) => { const video = document.createElement('video'); video.preload = 'metadata'; video.src = URL.createObjectURL(file); video.onloadedmetadata = () => { window.URL.revokeObjectURL(video.src); resolve(video.duration); }; video.onerror = () => resolve(0); }); }
+        async function downloadPhoto(url, filename) {
+            try {
+                const response = await fetch(url);
+                const blob = await response.blob();
+                const blobUrl = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none'; a.href = blobUrl; a.download = filename || `AFUMA_${Date.now()}.jpg`;
+                document.body.appendChild(a); a.click(); window.URL.revokeObjectURL(blobUrl);
+            } catch (e) { window.open(url, '_blank'); }
+        }
+
+        function getFormattedDateTime() {
+            const now = new Date();
+            let hours = now.getHours(); const minutes = now.getMinutes().toString().padStart(2, '0');
+            const ampm = hours >= 12 ? 'PM' : 'AM'; hours = hours % 12; hours = hours ? hours : 12; 
+            return `${hours}:${minutes} ${ampm} - ${now.getDate().toString().padStart(2, '0')}/${(now.getMonth() + 1).toString().padStart(2, '0')}/${now.getFullYear()}`;
+        }
 
         async function uploadDispatcher(fileList) {
             if (!fileList || fileList.length === 0 || !currentUserPhone) return;
-            const container = document.getElementById('upload-progress-container'), bar = document.getElementById('upload-progress-bar');
-            
-            let filesToProcess = [];
+            const container = document.getElementById('upload-progress-container'), bar = document.getElementById('upload-progress-bar'), text = document.getElementById('upload-status-text');
+            container.classList.remove('hidden'); text.classList.remove('hidden');
+
             for (let i = 0; i < fileList.length; i++) {
                 let file = fileList[i];
-                if (file.type.startsWith('video/')) {
-                    let duration = await getVideoDuration(file);
-                    if (duration > 1200) { alert(`ویڈیو ۲۰ منٹ سے زیادہ ہے۔`); continue; }
-                }
-                filesToProcess.push(file);
-            }
-            if (filesToProcess.length === 0) return;
-            container.classList.remove('hidden');
+                text.innerText = `Uploading ${file.name}...`;
+                let formData = new FormData(); formData.append("image", file);
 
-            for (let i = 0; i < filesToProcess.length; i++) {
-                let file = filesToProcess[i], folder = folderSelector(file.type);
-                if (folder === "photos") await uploadImageFreeSync(file); 
-                else await uploadGenericFileFreeSync(file);
-                bar.style.width = `${Math.round(((i + 1) / filesToProcess.length) * 100)}%`;
-            }
-            setTimeout(() => { container.classList.add('hidden'); switchTab(folderSelector(filesToProcess[0].type)); }, 800);
-        }
-
-        function uploadImageFreeSync(file) {
-            return new Promise((resolve) => {
-                const formData = new FormData(); formData.append("image", file);
-                fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, { method: "POST", body: formData })
-                .then(res => res.json()).then(res => { if(res && res.success) database.ref(`users_vault/${currentUserPhone}/photos`).push({ name: file.name, url: res.data.url, timestamp: Date.now() }); resolve(); }).catch(() => resolve());
-            });
-        }
-
-        // 🌟 الٹرا ہائی سپیڈ کلاؤڈ نان بلاکنگ ویڈیو انجن برائے گٹ ہب پیجز
-        function uploadGenericFileFreeSync(file) {
-            return new Promise((resolve) => {
-                let folder = folderSelector(file.type);
-                const formData = new FormData();
-                formData.append("file", file);
-
-                fetch("https://pixeldrain.com/api/file", { method: "POST", body: formData })
-                .then(res => res.json()).then(res => {
-                    if(res && res.success) {
-                        let streamUrl = "https://pixeldrain.com/api/file/" + res.id;
-                        database.ref(`users_vault/${currentUserPhone}/${folder}`).push({ name: file.name, url: streamUrl, timestamp: Date.now() });
-                    }
-                    resolve();
-                }).catch(() => resolve());
-            });
-        }
-
-        function folderSelector(type) { if (type.startsWith('image/')) return "photos"; if (type.startsWith('video/')) return "videos"; return "pdfs"; }
-
-        async function startCamera() {
-            if (streamRef) streamRef.getTracks().forEach(track => track.stop());
-            const videoElement = document.getElementById('webcam');
-            
-            // 🎙️ مائیک آڈیو لاک ایکٹیویشن اوپنر فکسڈ
-            let constraints = { 
-                video: { facingMode: currentFacingMode, width: { ideal: 1280 }, height: { ideal: 720 } }, 
-                audio: true 
-            };
-            try {
-                streamRef = await navigator.mediaDevices.getUserMedia(constraints);
-                videoElement.srcObject = streamRef;
-                videoElement.onloadedmetadata = () => videoElement.play().catch(e => console.log(e));
-            } catch (err) {
                 try {
-                    streamRef = await navigator.mediaDevices.getUserMedia({ video: { facingMode: currentFacingMode } });
-                    videoElement.srcObject = streamRef;
-                    videoElement.onloadedmetadata = () => videoElement.play().catch(e => console.log(e));
-                } catch(e) { alert("Camera failed."); }
+                    let res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, { method: "POST", body: formData }).then(r => r.json());
+                    if (res && res.success) {
+                        database.ref(`users_vault/${currentUserPhone}/photos`).push({
+                            name: file.name,
+                            url: res.data.url,
+                            folderId: currentFolderScope, // موجودہ اوپن فولڈر کے اندر ہی سیو ہوگی
+                            formattedDate: getFormattedDateTime(),
+                            timestamp: Date.now()
+                        });
+                    }
+                } catch (e) { alert(`${file.name} upload failed.`); }
+                bar.style.width = `${Math.round(((i + 1) / fileList.length) * 100)}%`;
             }
+            setTimeout(() => { container.classList.add('hidden'); text.classList.add('hidden'); bar.style.width = "0%"; }, 800);
         }
 
-        function openCameraModal() { cameraCaptureMode = "photo"; setCameraCaptureType('photo'); document.getElementById('camera-modal').classList.add('active'); startCamera(); }
-        function switchCameraMode() { currentFacingMode = (currentFacingMode === "environment") ? "user" : "environment"; startCamera(); }
-        function closeCameraModal() { stopTimer(); if (mediaRecorderRef && mediaRecorderRef.state !== "inactive") mediaRecorderRef.stop(); if (streamRef) streamRef.getTracks().forEach(track => track.stop()); document.getElementById('camera-modal').classList.remove('active'); }
-
-        function setCameraCaptureType(mode) {
-            cameraCaptureMode = mode;
-            const btnPhoto = document.getElementById('btn-mode-photo'), btnVideo = document.getElementById('btn-mode-video');
-            const triggerBtn = document.getElementById('capture-trigger-btn'), statusLabel = document.getElementById('camera-mode-status');
-            if(mode === 'photo') {
-                btnPhoto.className = "text-blue-400 border-b-2 border-blue-400 pb-1 font-bold"; btnVideo.className = "text-gray-400 pb-1";
-                triggerBtn.className = "w-16 h-16 bg-white rounded-full border-4 border-black/40 shadow-2xl flex-shrink-0"; statusLabel.innerText = "Photo Mode"; statusLabel.className = "text-green-400 text-sm font-bold";
-            } else {
-                btnVideo.className = "text-red-500 border-b-2 border-red-500 pb-1 font-bold"; btnPhoto.className = "text-gray-400 pb-1";
-                triggerBtn.className = "w-16 h-16 bg-red-600 rounded-full border-4 border-white/60 shadow-2xl flex-shrink-0"; statusLabel.innerText = "Video Mode"; statusLabel.className = "text-red-500 text-sm font-bold";
-            }
-            startCamera();
-        }
-
-        function triggerCameraCapture() {
-            if (cameraCaptureMode === "photo") { capturePhoto(); } 
-            else {
-                if (mediaRecorderRef && mediaRecorderRef.state === "recording") { mediaRecorderRef.stop(); stopTimer(); document.getElementById('camera-mode-status').innerText = "Processing..."; } 
-                else { startVideoRecording(); }
-            }
-        }
-
-        function capturePhoto() {
-            const video = document.getElementById('webcam'), canvas = document.getElementById('canvas');
-            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
-            canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
-            canvas.toBlob(blob => { const file = new File([blob], `Snap_${Date.now()}.jpg`, { type: "image/jpeg" }); closeCameraModal(); uploadDispatcher([file]); }, 'image/jpeg');
-        }
-
-        // ⏱️ لائیو ویڈیو ٹائمر پینل کاؤنٹر
-        function startTimer() { recordingSeconds = 0; const label = document.getElementById('camera-mode-status'); timerIntervalRef = setInterval(() => { recordingSeconds++; const mins = Math.floor(recordingSeconds / 60).toString().padStart(2, '0'), secs = (recordingSeconds % 60).toString().padStart(2, '0'); label.innerText = `🔴 REC ${mins}:${secs}`; }, 1000); }
-        function stopTimer() { if (timerIntervalRef) { clearInterval(timerIntervalRef); timerIntervalRef = null; } }
-
-        function startVideoRecording() {
-            recordedChunks = []; const triggerBtn = document.getElementById('capture-trigger-btn');
-            let options = { mimeType: 'video/webm;codecs=vp9,opus' };
-            if (!MediaRecorder.isTypeSupported(options.mimeType)) { options = { mimeType: 'video/mp4;codecs=avc1.42E01E,mp4a.40.2' }; }
-            try {
-                mediaRecorderRef = new MediaRecorder(streamRef, options);
-                mediaRecorderRef.ondataavailable = (e) => { if (e.data.size > 0) recordedChunks.push(e.data); };
-                mediaRecorderRef.onstop = () => { const blob = new Blob(recordedChunks, { type: 'video/mp4' }); const file = new File([blob], `Cam_${Date.now()}.mp4`, { type: 'video/mp4' }); closeCameraModal(); uploadDispatcher([file]); };
-                mediaRecorderRef.start(); startTimer(); triggerBtn.className = "w-12 h-12 bg-red-700 rounded-lg border-2 border-white shadow-2xl transition-all";
-            } catch (e) { alert("Recording failed."); }
+        function renderPhotosGrid() {
+            const grid = document.getElementById('grid-assets'); if (!grid) return; grid.innerHTML = '';
+            let counter = 0;
+            
+            Object.keys(activeDataSnapshot).forEach(key => {
+                const data = activeDataSnapshot[key];
+                const itemScope = data.folderId || "root";
+                
+                if (itemScope === currentFolderScope) {
+                    counter++;
+                    const footer = `<div class="absolute bottom-0 left-0 right-0 bg-black/75 text-white text-[8px] px-1.5 py-1 flex flex-col z-10"><span class="truncate font-semibold">${data.name || 'Photo'}</span><span class="text-gray-300 scale-[0.9] origin-left pt-0.5"><i class="fa-regular fa-clock mr-0.5"></i>${data.formattedDate || ''}</span></div>`;
+                    const check = `<span id="check-${key}" class="hidden absolute top-2 left-2 bg-blue-600 text-white text-xs w-6 h-6 rounded-full flex items-center justify-center z-20"><i class="fa-solid fa-check"></i></span>`;
+                    grid.innerHTML += `<div id="card-${key}" class="asset-card relative aspect-square rounded-2xl overflow-hidden border border-gray-200 shadow-sm bg-gray-50" onclick="handleAssetClick(event, '${key}', '${data.url}', '${data.name}')" oncontextmenu="handleAssetLongPress(event, '${key}', '${data.url}', '${data.name}')">${check}<img src="${data.url}" class="w-full h-full object-cover bg-black">${footer}</div>`;
+                }
+            });
+            if(counter === 0) { grid.innerHTML = `<div class="col-span-full text-center text-gray-400 py-12 text-xs">No photos in this scope.</div>`; }
         }
 
         function loadUserData() {
             if (!currentUserPhone) return;
-            database.ref(`users_vault/${currentUserPhone}/${currentActiveTab}`).on('value', snapshot => {
-                const grid = document.getElementById(`grid-${currentActiveTab}`); if (!grid) return; grid.innerHTML = '';
+            
+            // ۱۔ لائیو فولڈرز سنکنگ
+            database.ref(`users_vault/${currentUserPhone}/folders`).on('value', snapshot => {
+                userFoldersData = snapshot.exists() ? snapshot.val() : {};
+                const fGrid = document.getElementById('folders-grid'); if(!fGrid) return; fGrid.innerHTML = '';
+                
+                Object.keys(userFoldersData).forEach(id => {
+                    const f = userFoldersData[id];
+                    fGrid.innerHTML += `<div onclick="navigateToFolder('${id}')" class="bg-white border border-gray-200 p-3 rounded-2xl flex items-center justify-between gap-2 shadow-sm cursor-pointer active:scale-95 transition">
+                        <div class="flex items-center gap-2 truncate flex-1">
+                            <i class="fa-solid fa-folder text-amber-500 text-lg shrink-0"></i>
+                            <span class="text-xs font-bold text-gray-700 truncate">${f.name}</span>
+                        </div>
+                        <button onclick="event.stopPropagation(); deleteFolder('${id}', '${f.name}')" class="text-gray-300 hover:text-red-500 text-xs p-1"><i class="fa-solid fa-trash-can"></i></button>
+                    </div>`;
+                });
+            });
+            
+            // ۲۔ لائیو فوٹوز سنکنگ
+            database.ref(`users_vault/${currentUserPhone}/photos`).on('value', snapshot => {
                 activeDataSnapshot = snapshot.exists() ? snapshot.val() : {};
-                if (!snapshot.exists()) { grid.innerHTML = `<div class="col-span-full text-center text-gray-400 py-12">No items found.</div>`; return; }
-                buildUiGridElements(activeDataSnapshot, currentActiveTab, grid);
+                renderPhotosGrid();
+            });
+
+            // ۳۔ لائیو نوٹس سنکنگ
+            database.ref(`users_vault/${currentUserPhone}/notes`).on('value', snapshot => {
+                const list = document.getElementById('notes-list'); if (!list) return; list.innerHTML = '';
+                if (!snapshot.exists()) { list.innerHTML = `<div class="text-center text-gray-400 py-6 text-sm">No secured notes yet.</div>`; return; }
+                
+                snapshot.forEach(child => {
+                    const data = child.val(), key = child.key;
+                    list.innerHTML += `<div class="${data.colorClass || 'bg-white'} p-4 rounded-2xl shadow-sm border border-gray-200 flex justify-between items-center gap-4 active:scale-[0.99] transition cursor-pointer" onclick="openFullNotePage('${key}', ${JSON.stringify(data).replace(/"/g, '&quot;')})">
+                        <div class="space-y-1 truncate flex-1">
+                            <h3 class="font-bold text-gray-800 text-sm truncate">${data.title}</h3>
+                            <p class="text-xs text-gray-500 truncate">${data.body}</p>
+                            <span class="text-[9px] text-gray-400 block">${data.formattedDate || ''}</span>
+                        </div>
+                        <button onclick="event.stopPropagation(); deleteNote('${key}')" class="text-gray-300 hover:text-red-500 text-sm p-2 transition"><i class="fa-solid fa-trash-can"></i></button>
+                    </div>`;
+                });
             });
         }
 
-        function formatTimestampToDateTime(ts) { const d = new Date(ts); return { date: `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`, time: `${d.getHours() % 12 || 12}:${d.getMinutes().toString().padStart(2, '0')} ${d.getHours() >= 12 ? 'PM' : 'AM'}` }; }
+        /* 📒 نوٹ پیڈ انجن لاجک */
+        function saveNote() {
+            const title = document.getElementById('note-title').value.trim(), body = document.getElementById('note-body').value.trim();
+            if (!title || !body) return alert("Please enter title and content.");
+            database.ref(`users_vault/${currentUserPhone}/notes`).push({
+                title: title, body: body, colorClass: selectedColorClass, formattedDate: getFormattedDateTime(), timestamp: Date.now()
+            }).then(() => {
+                document.getElementById('note-title').value = ""; document.getElementById('note-body').value = "";
+                selectNoteColor('bg-white', document.querySelector('.color-dot'));
+            });
+        }
+        function deleteNote(noteKey) { if (confirm("Delete this note?")) database.ref(`users_vault/${currentUserPhone}/notes/${noteKey}`).remove(); }
 
-        function buildUiGridElements(dataObject, folder, gridContainer) {
-            Object.keys(dataObject).forEach(key => {
-                const data = dataObject[key], timeData = formatTimestampToDateTime(data.timestamp);
-                const footer = `<div class="absolute bottom-0 left-0 right-0 bg-black/70 text-white text-[10px] px-2 py-1 flex justify-between items-center z-10"><span>${timeData.date}</span><span>${timeData.time}</span></div>`;
-                const check = `<span id="check-${key}" class="hidden absolute top-2 left-2 bg-blue-600 text-white text-xs w-6 h-6 rounded-full flex items-center justify-center z-20"><i class="fa-solid fa-check"></i></span>`;
+        function viewPreview(url, name) {
+            document.getElementById('preview-box').innerHTML = `<img src="${url}" class="w-full h-full object-contain bg-black">`;
+            document.getElementById('preview-actions').innerHTML = `
+                <button onclick="downloadPhoto('${url}', '${name}')" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs px-5 py-2.5 rounded-xl shadow-lg flex items-center gap-1.5"><i class="fa-solid fa-cloud-arrow-down"></i> Save to Gallery</button>
+                <button onclick="shareSinglePreview('${url}', '${name}')" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs px-5 py-2.5 rounded-xl shadow-lg flex items-center gap-1.5"><i class="fa-solid fa-share-nodes"></i> Share Photo</button>
+            `;
+            document.getElementById('preview-modal').classList.add('active'); pushModalState();
+        }
 
-                if (folder === 'photos') {
-                    gridContainer.innerHTML += `<div id="card-${key}" class="asset-card relative aspect-square rounded-2xl overflow-hidden border bg-gray-200" onclick="handleAssetClick(event, '${folder}', '${key}', '${data.url}', '${data.name}')" oncontextmenu="handleAssetLongPress(event, '${folder}', '${key}', '${data.url}', '${data.name}')">${check}<img src="${data.url}" class="w-full h-full object-cover pb-5 bg-black">${footer}</div>`;
-                } else if (folder === 'videos') {
-                    gridContainer.innerHTML += `<div id="card-${key}" class="asset-card relative aspect-video rounded-2xl overflow-hidden border bg-black" onclick="handleAssetClick(event, '${folder}', '${key}', '${data.url}', '${data.name}')" oncontextmenu="handleAssetLongPress(event, '${folder}', '${key}', '${data.url}', '${data.name}')">${check}<video src="${data.url}" class="w-full h-full object-cover block pb-6" controls playsinline></video>${footer}</div>`;
+        async function shareSinglePreview(url, name) {
+            document.getElementById('upload-progress-container').classList.remove('hidden');
+            try {
+                let response = await fetch(url); let blob = await response.blob();
+                let file = new File([blob], name || `AFUMA_Image.jpg`, { type: blob.type || "image/jpeg" });
+                document.getElementById('upload-progress-container').classList.add('hidden');
+                if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+                    await navigator.share({ files: [file], title: 'Share Image' }); return;
                 }
-            });
+            } catch(e) {}
+            document.getElementById('upload-progress-container').classList.add('hidden');
+            window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(url)}`, '_blank');
         }
 
-        // 🔗 نیٹیو گٹ ہب پیجز ڈائریکٹ اوپنر
-        function viewPreview(url, type, fileName) { if (type === 'photo') { const modal = document.getElementById('preview-modal'), box = document.getElementById('preview-box'); box.innerHTML = `<img src="${url}" class="w-full h-full object-contain bg-black">`; modal.classList.remove('hidden'); modal.classList.add('active'); } else { window.open(url, '_blank'); } }
         function closePreviewModal() { document.getElementById('preview-modal').classList.remove('active'); }
+
+        function openFullNotePage(key, data) {
+            const modal = document.getElementById('note-view-modal'); const card = document.getElementById('note-view-card');
+            card.className = "w-full max-w-lg rounded-3xl shadow-2xl p-6 flex flex-col justify-between max-h-[85vh] relative transition-all";
+            card.classList.add(data.colorClass || "bg-white");
+
+            document.getElementById('note-view-title').innerText = data.title;
+            document.getElementById('note-view-body').innerText = data.body;
+            document.getElementById('note-view-date').innerHTML = `<i class="fa-regular fa-calendar-days mr-1"></i> Saved on: ${data.formattedDate || ''}`;
+
+            document.getElementById('note-view-delete-btn').onclick = function() {
+                if (confirm("Delete this note permanently?")) { database.ref(`users_vault/${currentUserPhone}/notes/${key}`).remove(); closeNoteViewModal(); }
+            };
+            document.getElementById('note-view-share-btn').onclick = function() {
+                let shareText = `📝 *${data.title}*\n\n${data.body}`;
+                if (navigator.share) { navigator.share({ title: data.title, text: shareText }); } 
+                else { window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(shareText)}`, '_blank'); }
+            };
+            document.getElementById('note-view-pdf-btn').onclick = function() {
+                const element = document.getElementById('note-print-area');
+                const opt = { margin: 0.5, filename: `${data.title.replace(/\s+/g, '_')}_Document.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' } };
+                html2pdf().set(opt).from(element).save();
+            };
+            modal.classList.add('active'); pushModalState();
+        }
+
+        function closeNoteViewModal() { document.getElementById('note-view-modal').classList.remove('active'); }
     </script>
 </body>
 </html>
