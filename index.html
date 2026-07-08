@@ -61,10 +61,8 @@
             <h1 class="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">AFUMA Vault</h1>
             
             <div id="photo-actions" class="flex items-center gap-2">
-                <button onclick="document.getElementById('camera-picker').click()" class="bg-gray-100 hover:bg-gray-200 text-gray-600 p-2.5 rounded-full"><i class="fa-solid fa-camera"></i></button>
-                <input type="file" id="camera-picker" accept="image/*" capture="environment" class="hidden" onchange="uploadDispatcher(this.files)">
-
-                <button onclick="document.getElementById('file-picker').click()" class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-full text-sm shadow-md flex items-center gap-1.5 transition"><i class="fa-solid fa-plus"></i> Upload</button>
+                <!-- صرف گیلری سے اپلوڈ کا بٹن رکھا گیا ہے، کیمرا یہاں سے ہٹا دیا گیا ہے -->
+                <button onclick="document.getElementById('file-picker').click()" class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-full text-sm shadow-md flex items-center gap-1.5 transition"><i class="fa-solid fa-plus"></i> Upload From Gallery</button>
                 <input type="file" id="file-picker" accept="image/*" class="hidden" multiple onchange="uploadDispatcher(this.files)">
             </div>
         </header>
@@ -84,7 +82,6 @@
         </div>
 
         <div id="section-photos" class="p-4 max-w-4xl mx-auto space-y-4">
-            
             <div id="folder-creation-bar" class="flex items-center justify-between bg-white p-3 rounded-2xl shadow-sm border border-gray-100">
                 <div class="flex items-center gap-2 text-sm font-semibold text-gray-700">
                     <span id="current-folder-title"><i class="fa-solid fa-folder-open text-amber-500 mr-1"></i> Main Gallery</span>
@@ -93,9 +90,7 @@
                     <i class="fa-solid fa-folder-plus"></i> New Folder
                 </button>
             </div>
-
             <div id="folders-grid" class="grid grid-cols-2 sm:grid-cols-4 gap-3"></div>
-
             <div id="grid-assets" class="grid grid-cols-3 gap-2 sm:gap-3"></div>
         </div>
 
@@ -179,7 +174,7 @@
         let selectedAssets = {}, activeDataSnapshot = {}, currentActiveTab = "photos"; 
         let selectedColorClass = "bg-white"; 
         
-        let currentFolderScope = "root"; // 'root' یا فولڈر کی آئی ڈی
+        let currentFolderScope = "root"; 
         let userFoldersData = {};
 
         window.addEventListener('popstate', function (event) {
@@ -234,7 +229,6 @@
             element.classList.add('active');
         }
 
-        /* 📂 فولڈر مینجمنٹ انجن لاجک */
         function createNewFolderPrompt() {
             const name = prompt("Enter new folder name:");
             if (!name || name.trim() === "") return;
@@ -262,8 +256,6 @@
         function openMoveToFolderModal() {
             const listContainer = document.getElementById('modal-folders-list');
             listContainer.innerHTML = '';
-            
-            // روٹ کا آپشن (فولڈر سے باہر نکالنے کے لیے)
             listContainer.innerHTML += `<button onclick="moveSelectedAssetsToFolder('root')" class="w-full text-left p-3 rounded-xl bg-gray-50 border border-gray-200 text-xs font-semibold text-gray-700 hover:bg-blue-50 block"><i class="fa-solid fa-images text-blue-500 mr-1"></i> Move to Main Gallery (Root)</button>`;
 
             Object.keys(userFoldersData).forEach(id => {
@@ -287,7 +279,6 @@
 
         function deleteFolder(folderId, name) {
             if (confirm(`Are you sure you want to delete folder "${name}"? Inside photos will stay safe in Main Gallery.`)) {
-                // فولڈر کی تصویروں کو واپس روٹ پر لے آئیں
                 Object.keys(activeDataSnapshot).forEach(key => {
                     if (activeDataSnapshot[key].folderId === folderId) {
                         database.ref(`users_vault/${currentUserPhone}/photos/${key}`).update({ folderId: 'root' });
@@ -297,7 +288,6 @@
             }
         }
 
-        /* 📸 گیلری سلیکشن اور رینڈرنگ */
         function handleAssetClick(event, key, url, name) { if (Object.keys(selectedAssets).length > 0) { event.preventDefault(); toggleAssetSelection(key, url, name); } else { viewPreview(url, name); } }
         function handleAssetLongPress(event, key, url, name) { event.preventDefault(); toggleAssetSelection(key, url, name); }
 
@@ -370,7 +360,7 @@
                         database.ref(`users_vault/${currentUserPhone}/photos`).push({
                             name: file.name,
                             url: res.data.url,
-                            folderId: currentFolderScope, // موجودہ اوپن فولڈر کے اندر ہی سیو ہوگی
+                            folderId: currentFolderScope, 
                             formattedDate: getFormattedDateTime(),
                             timestamp: Date.now()
                         });
@@ -402,7 +392,6 @@
         function loadUserData() {
             if (!currentUserPhone) return;
             
-            // ۱۔ لائیو فولڈرز سنکنگ
             database.ref(`users_vault/${currentUserPhone}/folders`).on('value', snapshot => {
                 userFoldersData = snapshot.exists() ? snapshot.val() : {};
                 const fGrid = document.getElementById('folders-grid'); if(!fGrid) return; fGrid.innerHTML = '';
@@ -419,13 +408,11 @@
                 });
             });
             
-            // ۲۔ لائیو فوٹوز سنکنگ
             database.ref(`users_vault/${currentUserPhone}/photos`).on('value', snapshot => {
                 activeDataSnapshot = snapshot.exists() ? snapshot.val() : {};
                 renderPhotosGrid();
             });
 
-            // ۳۔ لائیو نوٹس سنکنگ
             database.ref(`users_vault/${currentUserPhone}/notes`).on('value', snapshot => {
                 const list = document.getElementById('notes-list'); if (!list) return; list.innerHTML = '';
                 if (!snapshot.exists()) { list.innerHTML = `<div class="text-center text-gray-400 py-6 text-sm">No secured notes yet.</div>`; return; }
@@ -444,7 +431,6 @@
             });
         }
 
-        /* 📒 نوٹ پیڈ انجن لاجک */
         function saveNote() {
             const title = document.getElementById('note-title').value.trim(), body = document.getElementById('note-body').value.trim();
             if (!title || !body) return alert("Please enter title and content.");
