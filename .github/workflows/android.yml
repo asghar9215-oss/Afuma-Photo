@@ -1,4 +1,4 @@
-name: Build Both APK and AAB Files
+name: Build Production APK and AAB with Web URL
 
 on:
   workflow_dispatch:
@@ -6,19 +6,23 @@ on:
       app_name:
         description: 'ایپ کا نام درج کریں'
         required: true
-        default: 'Afuma Photo Gallery'
+        default: 'AFUMA Vault'
       package_name:
-        description: 'پیکیج آئی ڈی (com.afuma.gallery)'
+        description: 'پیکیج آئی ڈی درج کریں'
         required: true
-        default: 'com.afuma.photogallery'
+        default: 'com.afuma.vault'
+      web_url:
+        description: 'اپنے بلاگر یا ویب سائٹ کا مکمل لنک (URL) یہاں ڈالیں'
+        required: true
+        default: 'https://yourbloggerlink.blogspot.com'
       version_code:
-        description: 'ورژن کوڈ لکھیں'
+        description: 'ورژن کوڈ لکھیں (ہر بار نمبر بڑھائیں، جیسے 2، 3)'
         required: true
-        default: '1'
+        default: '2'
       version_name:
         description: 'ورژن کا نام لکھیں'
         required: true
-        default: '1.0.0'
+        default: '1.0.1'
 
 jobs:
   build:
@@ -38,9 +42,9 @@ jobs:
           mkdir -p app/src/main/assets
           mkdir -p app/src/main/res/drawable
           mkdir -p app/src/main/res/values
+          mkdir -p app/src/main/xml
           PKG_PATH=$(echo "${{ github.event.inputs.package_name }}" | tr '.' '/')
           mkdir -p "app/src/main/java/$PKG_PATH"
-          cp index.html app/src/main/assets/index.html
 
       - name: Create Icon
         run: |
@@ -48,7 +52,17 @@ jobs:
           <vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108"><path android:fillColor="#2563EB" android:pathData="M54,54m-30,0a30,30 0,1 1,60 0a30,30 0,1 1,-60 0"/></vector>
           EOF
 
-      - name: Generate Java Main
+      - name: Create File Provider XML (For Sharing and PDF)
+        run: |
+          cat << 'EOF' > app/src/main/xml/file_paths.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <paths>
+              <external-path name="external_files" path="." />
+              <cache-path name="cache_files" path="." />
+          </paths>
+          EOF
+
+      - name: Generate Java Main (Fixed Share, Upload, and PDF)
         run: |
           PKG_PATH=$(echo "${{ github.event.inputs.package_name }}" | tr '.' '/')
           cat << 'EOF' > "app/src/main/java/$PKG_PATH/MainActivity.java"
@@ -78,17 +92,31 @@ jobs:
                   settings.setDomStorageEnabled(true);
                   settings.setAllowFileAccess(true);
                   settings.setAllowContentAccess(true);
+                  settings.setDatabaseEnabled(true);
+                  settings.setJavaScriptCanOpenWindowsAutomatically(true);
 
                   myWebView.setWebViewClient(new WebViewClient() {
                       @Override
                       public boolean shouldOverrideUrlLoading(WebView view, String url) {
+                          // Fix: WhatsApp handling without crashing the share menu
                           if (url.startsWith("whatsapp:") || url.contains("api.whatsapp.com") || url.contains("wa.me")) {
                               try {
-                                  startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+                                  Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                                  startActivity(intent);
                                   return true;
                               } catch (Exception e) {
                                   Toast.makeText(MainActivity.this, "WhatsApp Not Installed", Toast.LENGTH_SHORT).show();
                                   return true;
+                              }
+                          }
+                          // Fix: Opening PDFs and external files in system viewer
+                          if (url.endsWith(".pdf") || url.contains("docs.google.com")) {
+                              try {
+                                  Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                                  startActivity(intent);
+                                  return true;
+                              } catch (Exception e) {
+                                  return false;
                               }
                           }
                           return false;
@@ -96,6 +124,7 @@ jobs:
                   });
 
                   myWebView.setWebChromeClient(new WebChromeClient() {
+                      // Fix: Native image and file upload support
                       @Override
                       public boolean onShowFileChooser(WebView webView, ValueCallback<Uri[]> filePathCallback, WebChromeClient.FileChooserParams fileChooserParams) {
                           if (uploadMessage != null) uploadMessage.onReceiveValue(null);
@@ -111,7 +140,8 @@ jobs:
                       }
                   });
 
-                  myWebView.loadUrl("file:///android_asset/index.html");
+                  // Directly load your Blogger or Website link provided in GitHub Actions input
+                  myWebView.loadUrl("${{ github.event.inputs.web_url }}");
                   setContentView(myWebView);
               }
 
@@ -131,26 +161,39 @@ jobs:
           }
           EOF
 
-      - name: Generate Manifest
+      - name: Generate Manifest with Full Permissions
         run: |
           cat << EOF > app/src/main/AndroidManifest.xml
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
               <uses-permission android:name="android.permission.INTERNET" />
-              <application android:label="${{ github.event.inputs.app_name }}" android:icon="@drawable/ic_launcher" android:theme="@android:style/Theme.DeviceDefault.NoActionBar.Fullscreen">
-                  <activity android:name=".MainActivity" android:exported="true" android:configChanges="orientation|screenSize">
+              <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+              <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
+              <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+              <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+              
+              <application android:label="${{ github.event.inputs.app_name }}" android:icon="@drawable/ic_launcher" android:theme="@android:style/Theme.DeviceDefault.NoActionBar.Fullscreen" android:usesCleartextTraffic="true">
+                  <activity android:name=".MainActivity" android:exported="true" android:configChanges="orientation|screenSize|keyboardHidden">
                       <intent-filter>
                           <action android:name="android.intent.action.MAIN" />
                           <category android:name="android.intent.category.LAUNCHER" />
                       </intent-filter>
                   </activity>
+                  <provider
+                      android:name="android.support.v4.content.FileProvider"
+                      android:authorities="${{ github.event.inputs.package_name }}.fileprovider"
+                      android:exported="false"
+                      android:grantUriPermissions="true">
+                      <meta-data
+                          android:name="android.support.file_provider_paths"
+                          android:resource="@xml/file_paths" />
+                  </provider>
               </application>
           </manifest>
           EOF
 
-      - name: Generate Security Keystore (For Play Store & Safe Install)
+      - name: Generate Security Keystore
         run: |
           keytool -genkey -v -keystore app/release.keystore -alias "afumakey" -keyalg RSA -keysize 2048 -validity 10000 -storepass "AfumaVault123" -keypass "AfumaVault123" -dname "CN=Afuma, OU=Gallery, O=Vault, L=Lahore, S=Punjab, C=PK"
-          keytool -export -rfc -keystore app/release.keystore -alias "afumakey" -file app/upload_certificate.pem -storepass "AfumaVault123"
 
       - name: Gradle System Configuration
         run: |
@@ -180,17 +223,15 @@ jobs:
           }
           EOF
 
-      - name: Build Official Signed AAB and APK Files
+      - name: Build Official Clean Signed Files
         run: |
           gradle wrapper --gradle-version 8.5
-          ./gradlew :app:bundleRelease :app:assembleRelease
+          ./gradlew clean :app:bundleRelease :app:assembleRelease
 
-      - name: Save Both Final Files (APK & AAB + Keystore)
+      - name: Save Both Final Files (APK & AAB)
         uses: actions/upload-artifact@v4
         with:
-          name: Afuma_Official_Production_Files
+          name: Afuma_Blogger_Linked_Files
           path: |
             app/build/outputs/bundle/release/app-release.aab
             app/build/outputs/apk/release/app-release.apk
-            app/release.keystore
-            app/upload_certificate.pem
