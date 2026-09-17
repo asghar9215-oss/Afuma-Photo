@@ -53,8 +53,6 @@ jobs:
       - name: Generate Android Native Java Source Code
         run: |
           PKG_PATH=$(echo "${{ github.event.inputs.package_name }}" | tr '.' '/')
-          
-          # MainActivity Source Code with Background Alarm & PDF Support
           cat << 'EOF' > "app/src/main/java/$PKG_PATH/MainActivity.java"
           package ${{ github.event.inputs.package_name }};
 
@@ -149,7 +147,6 @@ jobs:
                               }
                           }
 
-                          // PDF / File Blob Download Fix
                           if (url.startsWith("blob:") || url.endsWith(".pdf") || url.contains("export=pdf")) {
                               createWebPrintJob(view);
                               return true;
@@ -182,7 +179,6 @@ jobs:
                       }
                   });
 
-                  // Native PDF Download and Saving Fix
                   myWebView.setDownloadListener((downloadUrl, userAgent, contentDisposition, mimeType, contentLength) -> {
                       try {
                           if (downloadUrl.startsWith("blob:")) {
@@ -206,7 +202,6 @@ jobs:
                       }
                   });
 
-                  // JavaScript Native Bridge Interface
                   myWebView.addJavascriptInterface(new Object() {
                       @android.webkit.JavascriptInterface
                       public void triggerNativeAlarmCall() {
@@ -290,8 +285,6 @@ jobs:
               <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
               <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
               <uses-permission android:name="android.permission.VIBRATE" />
-              <uses-permission android:name="android.permission.WAKE_LOCK" />
-              <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
 
               <application
                   android:allowBackup="true"
