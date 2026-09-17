@@ -191,7 +191,6 @@ jobs:
                       }
                   });
 
-                  # Native JavaScript Interface for Admin Triggered Alarm
                   myWebView.addJavascriptInterface(new Object() {
                       @android.webkit.JavascriptInterface
                       public void triggerNativeAlarmCall() {
@@ -219,7 +218,6 @@ jobs:
                           ringtone.play();
                           Toast.makeText(MainActivity.this, "🔔 اہم الرٹ: حساب کتاب اپڈیٹ کریں!", Toast.LENGTH_LONG).show();
                           
-                          // 30 سیکنڈ کے بعد الارم خودکار بند ہو جائے گا
                           new Handler(Looper.getMainLooper()).postDelayed(() -> {
                               if (ringtone != null && ringtone.isPlaying()) {
                                   ringtone.stop();
