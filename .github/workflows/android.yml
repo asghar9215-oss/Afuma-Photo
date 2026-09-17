@@ -14,11 +14,11 @@ on:
       version_code:
         description: 'ورژن کوڈ لکھیں'
         required: true
-        default: '10013'
+        default: '10014'
       version_name:
         description: 'ورژن کا نام لکھیں'
         required: true
-        default: '1.0.13'
+        default: '1.0.14'
       blogger_url:
         description: 'اپنے بلاگر یا ایپ کا لائیو لنک یہاں پیسٹ کریں'
         required: true
@@ -54,6 +54,7 @@ jobs:
         run: |
           PKG_PATH=$(echo "${{ github.event.inputs.package_name }}" | tr '.' '/')
           
+          # MainActivity Source Code with Background Alarm & PDF Support
           cat << 'EOF' > "app/src/main/java/$PKG_PATH/MainActivity.java"
           package ${{ github.event.inputs.package_name }};
 
@@ -85,7 +86,7 @@ jobs:
               private WebView myWebView;
               private ValueCallback<Uri[]> uploadMessage;
               private final static int FILECHOOSER_RESULTCODE = 1;
-              private Ringtone ringtone;
+              private static Ringtone ringtone;
 
               @Override
               protected void onCreate(Bundle savedInstanceState) {
@@ -94,7 +95,9 @@ jobs:
                   if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                       requestPermissions(new String[]{
                               "android.permission.ACCESS_FINE_LOCATION",
-                              "android.permission.ACCESS_COARSE_LOCATION"
+                              "android.permission.ACCESS_COARSE_LOCATION",
+                              "android.permission.WRITE_EXTERNAL_STORAGE",
+                              "android.permission.READ_EXTERNAL_STORAGE"
                       }, 1);
                   }
 
@@ -107,9 +110,10 @@ jobs:
                   webSettings.setDatabaseEnabled(true);
                   webSettings.setAllowContentAccess(true);
                   webSettings.setMediaPlaybackRequiresUserGesture(false);
-                  
-                  webSettings.setUseWideViewPort(false);
-                  webSettings.setLoadWithOverviewMode(false);
+                  webSettings.setAllowFileAccessFromFileURLs(true);
+                  webSettings.setAllowUniversalAccessFromFileURLs(true);
+                  webSettings.setBuiltInZoomControls(true);
+                  webSettings.setDisplayZoomControls(false);
 
                   myWebView.setWebViewClient(new WebViewClient() {
                       @Override
@@ -144,6 +148,13 @@ jobs:
                                   return true;
                               }
                           }
+
+                          // PDF / File Blob Download Fix
+                          if (url.startsWith("blob:") || url.endsWith(".pdf") || url.contains("export=pdf")) {
+                              createWebPrintJob(view);
+                              return true;
+                          }
+
                           return false;
                       }
                   });
@@ -171,11 +182,16 @@ jobs:
                       }
                   });
 
+                  // Native PDF Download and Saving Fix
                   myWebView.setDownloadListener((downloadUrl, userAgent, contentDisposition, mimeType, contentLength) -> {
                       try {
+                          if (downloadUrl.startsWith("blob:")) {
+                              createWebPrintJob(myWebView);
+                              return;
+                          }
                           DownloadManager.Request request = new DownloadManager.Request(Uri.parse(downloadUrl));
-                          request.setMimeType(mimeType);
-                          request.setDescription("فائل ڈاؤن لوڈ ہو رہی ہے...");
+                          request.setMimeType(mimeType != null ? mimeType : "application/pdf");
+                          request.setDescription("پی ڈی ایف رپورٹ ڈاؤن لوڈ ہو رہی ہے...");
                           request.setTitle(URLUtil.guessFileName(downloadUrl, contentDisposition, mimeType));
                           request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
                           request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, URLUtil.guessFileName(downloadUrl, contentDisposition, mimeType));
@@ -183,18 +199,18 @@ jobs:
                           DownloadManager dm = (DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE);
                           if (dm != null) {
                               dm.enqueue(request);
-                              Toast.makeText(MainActivity.this, "ڈاؤن لوڈنگ شروع ہو چکی ہے...", Toast.LENGTH_LONG).show();
+                              Toast.makeText(MainActivity.this, "📄 پی ڈی ایف ڈاؤن لوڈ ہو رہی ہے...", Toast.LENGTH_LONG).show();
                           }
                       } catch (Exception e) {
-                          Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(downloadUrl));
-                          startActivity(intent);
+                          createWebPrintJob(myWebView);
                       }
                   });
 
+                  // JavaScript Native Bridge Interface
                   myWebView.addJavascriptInterface(new Object() {
                       @android.webkit.JavascriptInterface
                       public void triggerNativeAlarmCall() {
-                          runOnUiThread(() -> playFullAlarmSound());
+                          runOnUiThread(() -> playFullAlarmSound(MainActivity.this));
                       }
 
                       @android.webkit.JavascriptInterface
@@ -207,16 +223,16 @@ jobs:
                   setContentView(myWebView);
               }
 
-              private void playFullAlarmSound() {
+              public static void playFullAlarmSound(Context context) {
                   try {
                       Uri alertUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
                       if (alertUri == null) {
                           alertUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
                       }
-                      ringtone = RingtoneManager.getRingtone(getApplicationContext(), alertUri);
+                      ringtone = RingtoneManager.getRingtone(context.getApplicationContext(), alertUri);
                       if (ringtone != null) {
                           ringtone.play();
-                          Toast.makeText(MainActivity.this, "🔔 اہم الرٹ: حساب کتاب اپڈیٹ کریں!", Toast.LENGTH_LONG).show();
+                          Toast.makeText(context, "🔔 اہم الرٹ: حساب کتاب اپڈیٹ کریں!", Toast.LENGTH_LONG).show();
                           
                           new Handler(Looper.getMainLooper()).postDelayed(() -> {
                               if (ringtone != null && ringtone.isPlaying()) {
@@ -232,10 +248,11 @@ jobs:
               private void createWebPrintJob(WebView webView) {
                   if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.KITKAT) {
                       PrintManager printManager = (PrintManager) this.getSystemService(Context.PRINT_SERVICE);
-                      String jobName = "Ji_Bhai_Khata_Document";
+                      String jobName = "Ji_Bhai_Khata_PDF_Report";
                       PrintDocumentAdapter printAdapter = webView.createPrintDocumentAdapter(jobName);
                       if (printManager != null) {
-                          printManager.print(jobName, printAdapter, new PrintAttributes.Builder().build());
+                          printManager.print(jobName, printAdapter, new PrintAttributes.Builder().setMediaSize(PrintAttributes.MediaSize.ISO_A4).build());
+                          Toast.makeText(MainActivity.this, "📄 پی ڈی ایف فائل تیار کی جا رہی ہے...", Toast.LENGTH_SHORT).show();
                       }
                   }
               }
@@ -270,7 +287,11 @@ jobs:
               <uses-permission android:name="android.permission.INTERNET" />
               <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
               <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+              <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+              <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
               <uses-permission android:name="android.permission.VIBRATE" />
+              <uses-permission android:name="android.permission.WAKE_LOCK" />
+              <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
 
               <application
                   android:allowBackup="true"
