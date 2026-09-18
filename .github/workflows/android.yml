@@ -14,11 +14,11 @@ on:
       version_code:
         description: 'ورژن کوڈ لکھیں'
         required: true
-        default: '10017'
+        default: '10018'
       version_name:
         description: 'ورژن کا نام لکھیں'
         required: true
-        default: '1.0.17'
+        default: '1.0.18'
       blogger_url:
         description: 'اپنے بلاگر یا ایپ کا لائیو لنک یہاں پیسٹ کریں'
         required: true
@@ -53,6 +53,8 @@ jobs:
       - name: Generate Android Native Java Source Code
         run: |
           PKG_PATH=$(echo "${{ github.event.inputs.package_name }}" | tr '.' '/')
+          
+          # MainActivity Code
           cat << 'EOF' > "app/src/main/java/$PKG_PATH/MainActivity.java"
           package ${{ github.event.inputs.package_name }};
 
@@ -85,7 +87,7 @@ jobs:
               private WebView myWebView;
               private ValueCallback<Uri[]> uploadMessage;
               private final static int FILECHOOSER_RESULTCODE = 1;
-              private static final String CHANNEL_ID = "ji_bhai_khata_alerts";
+              public static final String CHANNEL_ID = "ji_bhai_khata_alerts";
 
               @Override
               protected void onCreate(Bundle savedInstanceState) {
@@ -220,7 +222,7 @@ jobs:
                   myWebView.addJavascriptInterface(new Object() {
                       @android.webkit.JavascriptInterface
                       public void triggerNativeAlarmCall() {
-                          runOnUiThread(() -> showSystemNotification("💦 جی بھائی کھاتا - اہم الرٹ 💦", "محترم صارف! اپنا حساب کتاب اپڈیٹ کریں۔ ابھی ایپ کھولیں!"));
+                          runOnUiThread(() -> showSystemNotification(MainActivity.this, "💦 جی بھائی کھاتا - اہم الرٹ 💦", "محترم صارف! اپنا حساب کتاب اپڈیٹ کریں۔ ابھی ایپ کھولیں!"));
                       }
 
                       @android.webkit.JavascriptInterface
@@ -247,18 +249,18 @@ jobs:
                   }
               }
 
-              private void showSystemNotification(String title, String message) {
-                  Intent intent = new Intent(this, MainActivity.class);
+              public static void showSystemNotification(Context context, String title, String message) {
+                  Intent intent = new Intent(context, MainActivity.class);
                   intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-                  PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+                  PendingIntent pendingIntent = PendingIntent.getActivity(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
                   Uri defaultSoundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
 
                   android.app.Notification.Builder builder;
                   if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                      builder = new android.app.Notification.Builder(this, CHANNEL_ID);
+                      builder = new android.app.Notification.Builder(context, CHANNEL_ID);
                   } else {
-                      builder = new android.app.Notification.Builder(this);
+                      builder = new android.app.Notification.Builder(context);
                   }
 
                   builder.setSmallIcon(android.R.drawable.ic_popup_reminder)
@@ -268,7 +270,7 @@ jobs:
                           .setSound(defaultSoundUri)
                           .setContentIntent(pendingIntent);
 
-                  NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+                  NotificationManager notificationManager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
                   if (notificationManager != null) {
                       notificationManager.notify(101, builder.build());
                   }
@@ -301,6 +303,33 @@ jobs:
                   } else {
                       super.onBackPressed();
                   }
+              }
+          }
+          EOF
+
+          # MyFirebaseMessagingService Code for Background Notifications
+          cat << 'EOF' > "app/src/main/java/$PKG_PATH/MyFirebaseMessagingService.java"
+          package ${{ github.event.inputs.package_name }};
+
+          import com.google.firebase.messaging.FirebaseMessagingService;
+          import com.google.firebase.messaging.RemoteMessage;
+
+          public class MyFirebaseMessagingService extends FirebaseMessagingService {
+              @Override
+              public void onMessageReceived(RemoteMessage remoteMessage) {
+                  String title = "💦 جی بھائی کھاتا - اہم الرٹ 💦";
+                  String body = "محترم صارف! اپنا حساب کتاب اپڈیٹ کریں۔ ابھی ایپ کھولیں!";
+
+                  if (remoteMessage.getNotification() != null) {
+                      if (remoteMessage.getNotification().getTitle() != null) {
+                          title = remoteMessage.getNotification().getTitle();
+                      }
+                      if (remoteMessage.getNotification().getBody() != null) {
+                          body = remoteMessage.getNotification().getBody();
+                      }
+                  }
+
+                  MainActivity.showSystemNotification(this, title, body);
               }
           }
           EOF
@@ -339,6 +368,16 @@ jobs:
                           <category android:name="android.intent.category.LAUNCHER" />
                       </intent-filter>
                   </activity>
+
+                  <!-- FCM Background Service -->
+                  <service
+                      android:name=".MyFirebaseMessagingService"
+                      android:exported="false">
+                      <intent-filter>
+                          <action android:name="com.google.firebase.MESSAGING_EVENT" />
+                      </intent-filter>
+                  </service>
+
               </application>
           </manifest>
           EOF
@@ -383,6 +422,9 @@ jobs:
                   versionName "${{ github.event.inputs.version_name }}"
               }
               buildTypes { release { minifyEnabled false; signingConfig signingConfigs.release } }
+          }
+          dependencies {
+              implementation 'com.google.firebase:firebase-messaging:23.4.0'
           }
           EOF
           echo "org.gradle.jvmargs=-Xmx2048m" > gradle.properties
