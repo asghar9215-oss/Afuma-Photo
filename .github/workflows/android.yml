@@ -14,11 +14,11 @@ on:
       version_code:
         description: 'ورژن کوڈ لکھیں'
         required: true
-        default: '10018'
+        default: '10020'
       version_name:
         description: 'ورژن کا نام لکھیں'
         required: true
-        default: '1.0.18'
+        default: '1.0.20'
       blogger_url:
         description: 'اپنے بلاگر یا ایپ کا لائیو لنک یہاں پیسٹ کریں'
         required: true
@@ -54,7 +54,7 @@ jobs:
         run: |
           PKG_PATH=$(echo "${{ github.event.inputs.package_name }}" | tr '.' '/')
           
-          # MainActivity Code
+          # MainActivity Source Code with Native Background Service
           cat << 'EOF' > "app/src/main/java/$PKG_PATH/MainActivity.java"
           package ${{ github.event.inputs.package_name }};
 
@@ -307,33 +307,6 @@ jobs:
           }
           EOF
 
-          # MyFirebaseMessagingService Code for Background Notifications
-          cat << 'EOF' > "app/src/main/java/$PKG_PATH/MyFirebaseMessagingService.java"
-          package ${{ github.event.inputs.package_name }};
-
-          import com.google.firebase.messaging.FirebaseMessagingService;
-          import com.google.firebase.messaging.RemoteMessage;
-
-          public class MyFirebaseMessagingService extends FirebaseMessagingService {
-              @Override
-              public void onMessageReceived(RemoteMessage remoteMessage) {
-                  String title = "💦 جی بھائی کھاتا - اہم الرٹ 💦";
-                  String body = "محترم صارف! اپنا حساب کتاب اپڈیٹ کریں۔ ابھی ایپ کھولیں!";
-
-                  if (remoteMessage.getNotification() != null) {
-                      if (remoteMessage.getNotification().getTitle() != null) {
-                          title = remoteMessage.getNotification().getTitle();
-                      }
-                      if (remoteMessage.getNotification().getBody() != null) {
-                          body = remoteMessage.getNotification().getBody();
-                      }
-                  }
-
-                  MainActivity.showSystemNotification(this, title, body);
-              }
-          }
-          EOF
-
       - name: Generate Android Manifest File
         run: |
           cat << EOF > app/src/main/AndroidManifest.xml
@@ -368,16 +341,6 @@ jobs:
                           <category android:name="android.intent.category.LAUNCHER" />
                       </intent-filter>
                   </activity>
-
-                  <!-- FCM Background Service -->
-                  <service
-                      android:name=".MyFirebaseMessagingService"
-                      android:exported="false">
-                      <intent-filter>
-                          <action android:name="com.google.firebase.MESSAGING_EVENT" />
-                      </intent-filter>
-                  </service>
-
               </application>
           </manifest>
           EOF
@@ -422,9 +385,6 @@ jobs:
                   versionName "${{ github.event.inputs.version_name }}"
               }
               buildTypes { release { minifyEnabled false; signingConfig signingConfigs.release } }
-          }
-          dependencies {
-              implementation 'com.google.firebase:firebase-messaging:23.4.0'
           }
           EOF
           echo "org.gradle.jvmargs=-Xmx2048m" > gradle.properties
