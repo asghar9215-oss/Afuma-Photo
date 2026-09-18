@@ -14,11 +14,11 @@ on:
       version_code:
         description: 'ورژن کوڈ لکھیں'
         required: true
-        default: '10016'
+        default: '10017'
       version_name:
         description: 'ورژن کا نام لکھیں'
         required: true
-        default: '1.0.16'
+        default: '1.0.17'
       blogger_url:
         description: 'اپنے بلاگر یا ایپ کا لائیو لنک یہاں پیسٹ کریں'
         required: true
@@ -80,7 +80,6 @@ jobs:
           import android.app.NotificationChannel;
           import android.app.PendingIntent;
           import android.media.RingtoneManager;
-          import androidx.core.app.NotificationCompat;
 
           public class MainActivity extends Activity {
               private WebView myWebView;
@@ -170,7 +169,12 @@ jobs:
 
                       @Override
                       public void onPermissionRequest(final PermissionRequest request) {
-                          runOnUiThread(() -> request.grant(request.getResources()));
+                          runOnUiThread(new Runnable() {
+                              @Override
+                              public void run() {
+                                  request.grant(request.getResources());
+                              }
+                          });
                       }
 
                       @Override
@@ -250,13 +254,18 @@ jobs:
 
                   Uri defaultSoundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
 
-                  NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
-                          .setSmallIcon(android.R.drawable.ic_popup_reminder)
+                  android.app.Notification.Builder builder;
+                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                      builder = new android.app.Notification.Builder(this, CHANNEL_ID);
+                  } else {
+                      builder = new android.app.Notification.Builder(this);
+                  }
+
+                  builder.setSmallIcon(android.R.drawable.ic_popup_reminder)
                           .setContentTitle(title)
                           .setContentText(message)
                           .setAutoCancel(true)
                           .setSound(defaultSoundUri)
-                          .setPriority(NotificationCompat.PRIORITY_HIGH)
                           .setContentIntent(pendingIntent);
 
                   NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
@@ -374,9 +383,6 @@ jobs:
                   versionName "${{ github.event.inputs.version_name }}"
               }
               buildTypes { release { minifyEnabled false; signingConfig signingConfigs.release } }
-          }
-          dependencies {
-              implementation 'androidx.core:core:1.12.0'
           }
           EOF
           echo "org.gradle.jvmargs=-Xmx2048m" > gradle.properties
