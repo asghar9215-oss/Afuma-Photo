@@ -14,11 +14,11 @@ on:
       version_code:
         description: 'ورژن کوڈ لکھیں'
         required: true
-        default: '10014'
+        default: '10015'
       version_name:
         description: 'ورژن کا نام لکھیں'
         required: true
-        default: '1.0.14'
+        default: '1.0.15'
       blogger_url:
         description: 'اپنے بلاگر یا ایپ کا لائیو لنک یہاں پیسٹ کریں'
         required: true
@@ -75,16 +75,17 @@ jobs:
           import android.print.PrintAttributes;
           import android.print.PrintDocumentAdapter;
           import android.print.PrintManager;
-          import android.media.Ringtone;
+          import android.app.NotificationManager;
+          import android.app.NotificationChannel;
+          import android.app.PendingIntent;
           import android.media.RingtoneManager;
-          import android.os.Handler;
-          import android.os.Looper;
+          import androidx.core.app.NotificationCompat;
 
           public class MainActivity extends Activity {
               private WebView myWebView;
               private ValueCallback<Uri[]> uploadMessage;
               private final static int FILECHOOSER_RESULTCODE = 1;
-              private static Ringtone ringtone;
+              private static final String CHANNEL_ID = "ji_bhai_khata_alerts";
 
               @Override
               protected void onCreate(Bundle savedInstanceState) {
@@ -95,9 +96,12 @@ jobs:
                               "android.permission.ACCESS_FINE_LOCATION",
                               "android.permission.ACCESS_COARSE_LOCATION",
                               "android.permission.WRITE_EXTERNAL_STORAGE",
-                              "android.permission.READ_EXTERNAL_STORAGE"
+                              "android.permission.READ_EXTERNAL_STORAGE",
+                              "android.permission.POST_NOTIFICATIONS"
                       }, 1);
                   }
+
+                  createNotificationChannel();
 
                   myWebView = new WebView(this);
                   WebSettings webSettings = myWebView.getSettings();
@@ -110,8 +114,6 @@ jobs:
                   webSettings.setMediaPlaybackRequiresUserGesture(false);
                   webSettings.setAllowFileAccessFromFileURLs(true);
                   webSettings.setAllowUniversalAccessFromFileURLs(true);
-                  webSettings.setBuiltInZoomControls(true);
-                  webSettings.setDisplayZoomControls(false);
 
                   myWebView.setWebViewClient(new WebViewClient() {
                       @Override
@@ -205,7 +207,7 @@ jobs:
                   myWebView.addJavascriptInterface(new Object() {
                       @android.webkit.JavascriptInterface
                       public void triggerNativeAlarmCall() {
-                          runOnUiThread(() -> playFullAlarmSound(MainActivity.this));
+                          runOnUiThread(() -> showSystemNotification("💦 جی بھائی کھاتا - اہم الرٹ 💦", "محترم صارف! اپنا حساب کتاب اپڈیٹ کریں۔ ابھی ایپ کھولیں!"));
                       }
 
                       @android.webkit.JavascriptInterface
@@ -218,25 +220,39 @@ jobs:
                   setContentView(myWebView);
               }
 
-              public static void playFullAlarmSound(Context context) {
-                  try {
-                      Uri alertUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
-                      if (alertUri == null) {
-                          alertUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
+              private void createNotificationChannel() {
+                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                      CharSequence name = "Ji Bhai Khata Alerts";
+                      String description = "Channel for Ji Bhai Khata app notifications";
+                      int importance = NotificationManager.IMPORTANCE_HIGH;
+                      NotificationChannel channel = new NotificationChannel(CHANNEL_ID, name, importance);
+                      channel.setDescription(description);
+                      NotificationManager notificationManager = getSystemService(NotificationManager.class);
+                      if (notificationManager != null) {
+                          notificationManager.createNotificationChannel(channel);
                       }
-                      ringtone = RingtoneManager.getRingtone(context.getApplicationContext(), alertUri);
-                      if (ringtone != null) {
-                          ringtone.play();
-                          Toast.makeText(context, "🔔 اہم الرٹ: حساب کتاب اپڈیٹ کریں!", Toast.LENGTH_LONG).show();
-                          
-                          new Handler(Looper.getMainLooper()).postDelayed(() -> {
-                              if (ringtone != null && ringtone.isPlaying()) {
-                                  ringtone.stop();
-                              }
-                          }, 30000);
-                      }
-                  } catch (Exception e) {
-                      e.printStackTrace();
+                  }
+              }
+
+              private void showSystemNotification(String title, String message) {
+                  Intent intent = new Intent(this, MainActivity.class);
+                  intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                  PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+
+                  Uri defaultSoundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+
+                  NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
+                          .setSmallIcon(android.R.drawable.ic_popup_reminder)
+                          .setContentTitle(title)
+                          .setContentText(message)
+                          .setAutoCancel(true)
+                          .setSound(defaultSoundUri)
+                          .setPriority(NotificationCompat.PRIORITY_HIGH)
+                          .setContentIntent(pendingIntent);
+
+                  NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+                  if (notificationManager != null) {
+                      notificationManager.notify(101, builder.build());
                   }
               }
 
@@ -247,7 +263,6 @@ jobs:
                       PrintDocumentAdapter printAdapter = webView.createPrintDocumentAdapter(jobName);
                       if (printManager != null) {
                           printManager.print(jobName, printAdapter, new PrintAttributes.Builder().setMediaSize(PrintAttributes.MediaSize.ISO_A4).build());
-                          Toast.makeText(MainActivity.this, "📄 پی ڈی ایف فائل تیار کی جا رہی ہے...", Toast.LENGTH_SHORT).show();
                       }
                   }
               }
@@ -263,9 +278,6 @@ jobs:
 
               @Override
               public void onBackPressed() {
-                  if (ringtone != null && ringtone.isPlaying()) {
-                      ringtone.stop();
-                  }
                   if (myWebView.canGoBack()) {
                       myWebView.goBack();
                   } else {
@@ -285,6 +297,7 @@ jobs:
               <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
               <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
               <uses-permission android:name="android.permission.VIBRATE" />
+              <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
               <application
                   android:allowBackup="true"
@@ -344,6 +357,9 @@ jobs:
                   versionName "${{ github.event.inputs.version_name }}"
               }
               buildTypes { release { minifyEnabled false; signingConfig signingConfigs.release } }
+          }
+          dependencies {
+              implementation 'androidx.core:core:1.12.0'
           }
           EOF
           echo "org.gradle.jvmargs=-Xmx2048m" > gradle.properties
