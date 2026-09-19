@@ -14,11 +14,11 @@ on:
       version_code:
         description: 'ورژن کوڈ لکھیں'
         required: true
-        default: '10020'
+        default: '10022'
       version_name:
         description: 'ورژن کا نام لکھیں'
         required: true
-        default: '1.0.20'
+        default: '1.0.22'
       blogger_url:
         description: 'اپنے بلاگر یا ایپ کا لائیو لنک یہاں پیسٹ کریں'
         required: true
@@ -46,6 +46,51 @@ jobs:
           PKG_PATH=$(echo "${{ github.event.inputs.package_name }}" | tr '.' '/')
           mkdir -p "app/src/main/java/$PKG_PATH"
 
+      - name: Generate google-services.json Automatically
+        run: |
+          cat << 'EOF' > app/google-services.json
+          {
+            "project_info": {
+              "project_number": "830917277147",
+              "firebase_url": "https://electric-e5e6d-default-rtdb.firebaseio.com",
+              "project_id": "electric-e5e6d",
+              "storage_bucket": "electric-e5e6d.firebasestorage.app"
+            },
+            "client": [
+              {
+                "client_info": {
+                  "mobilesdk_app_id": "1:830917277147:android:3d5b3990758724e102a3fe",
+                  "android_client_info": {
+                    "package_name": "${{ github.event.inputs.package_name }}"
+                  }
+                },
+                "oauth_client": [
+                  {
+                    "client_id": "830917277147-ojsijd32e1e9lrnrlo0cl4v7kfjruant.apps.googleusercontent.com",
+                    "client_type": 3
+                  }
+                ],
+                "api_key": [
+                  {
+                    "current_key": "AIzaSyCMwReJ8IUXs3wNWf6QSrEPFrPhvECPXew"
+                  }
+                ],
+                "services": {
+                  "appinvite_service": {
+                    "other_platform_oauth_client": [
+                      {
+                        "client_id": "830917277147-ojsijd32e1e9lrnrlo0cl4v7kfjruant.apps.googleusercontent.com",
+                        "client_type": 3
+                      }
+                    ]
+                  }
+                }
+              }
+            ],
+            "configuration_version": "1"
+          }
+          EOF
+
       - name: Download Custom App Image Icon
         run: |
           curl -s -L "https://i.ibb.co/jPgwbSDq/74074.png" -o app/src/main/res/drawable/ic_launcher.png
@@ -54,7 +99,7 @@ jobs:
         run: |
           PKG_PATH=$(echo "${{ github.event.inputs.package_name }}" | tr '.' '/')
           
-          # MainActivity Source Code with Native Background Service
+          # MainActivity Source Code
           cat << 'EOF' > "app/src/main/java/$PKG_PATH/MainActivity.java"
           package ${{ github.event.inputs.package_name }};
 
@@ -82,6 +127,7 @@ jobs:
           import android.app.NotificationChannel;
           import android.app.PendingIntent;
           import android.media.RingtoneManager;
+          import com.google.firebase.messaging.FirebaseMessaging;
 
           public class MainActivity extends Activity {
               private WebView myWebView;
@@ -107,6 +153,9 @@ jobs:
                   }
 
                   createNotificationChannel();
+                  
+                  // Auto Subscribe all users to global FCM Topic for offline alerts
+                  FirebaseMessaging.getInstance().subscribeToTopic("all_users");
 
                   myWebView = new WebView(this);
                   WebSettings webSettings = myWebView.getSettings();
@@ -171,12 +220,7 @@ jobs:
 
                       @Override
                       public void onPermissionRequest(final PermissionRequest request) {
-                          runOnUiThread(new Runnable() {
-                              @Override
-                              public void run() {
-                                  request.grant(request.getResources());
-                              }
-                          });
+                          runOnUiThread(() -> request.grant(request.getResources()));
                       }
 
                       @Override
@@ -220,11 +264,6 @@ jobs:
                   });
 
                   myWebView.addJavascriptInterface(new Object() {
-                      @android.webkit.JavascriptInterface
-                      public void triggerNativeAlarmCall() {
-                          runOnUiThread(() -> showSystemNotification(MainActivity.this, "💦 جی بھائی کھاتا - اہم الرٹ 💦", "محترم صارف! اپنا حساب کتاب اپڈیٹ کریں۔ ابھی ایپ کھولیں!"));
-                      }
-
                       @android.webkit.JavascriptInterface
                       public void printPage() {
                           runOnUiThread(() -> createWebPrintJob(myWebView));
@@ -307,6 +346,40 @@ jobs:
           }
           EOF
 
+          # MyFirebaseMessagingService Code for Background Messaging
+          cat << 'EOF' > "app/src/main/java/$PKG_PATH/MyFirebaseMessagingService.java"
+          package ${{ github.event.inputs.package_name }};
+
+          import com.google.firebase.messaging.FirebaseMessagingService;
+          import com.google.firebase.messaging.RemoteMessage;
+
+          public class MyFirebaseMessagingService extends FirebaseMessagingService {
+              @Override
+              public void onMessageReceived(RemoteMessage remoteMessage) {
+                  String title = "💦 جی بھائی کھاتا - اہم الرٹ 💦";
+                  String body = "محترم صارف! اپنا حساب کتاب اپڈیٹ کریں۔ ابھی ایپ کھولیں!";
+
+                  if (remoteMessage.getNotification() != null) {
+                      if (remoteMessage.getNotification().getTitle() != null) {
+                          title = remoteMessage.getNotification().getTitle();
+                      }
+                      if (remoteMessage.getNotification().getBody() != null) {
+                          body = remoteMessage.getNotification().getBody();
+                      }
+                  } else if (remoteMessage.getData().size() > 0) {
+                      if (remoteMessage.getData().get("title") != null) {
+                          title = remoteMessage.getData().get("title");
+                      }
+                      if (remoteMessage.getData().get("message") != null) {
+                          body = remoteMessage.getData().get("message");
+                      }
+                  }
+
+                  MainActivity.showSystemNotification(this, title, body);
+              }
+          }
+          EOF
+
       - name: Generate Android Manifest File
         run: |
           cat << EOF > app/src/main/AndroidManifest.xml
@@ -341,6 +414,14 @@ jobs:
                           <category android:name="android.intent.category.LAUNCHER" />
                       </intent-filter>
                   </activity>
+
+                  <service
+                      android:name=".MyFirebaseMessagingService"
+                      android:exported="false">
+                      <intent-filter>
+                          <action android:name="com.google.firebase.MESSAGING_EVENT" />
+                      </intent-filter>
+                  </service>
               </application>
           </manifest>
           EOF
@@ -360,11 +441,20 @@ jobs:
           EOF
 
           cat << 'EOF' > build.gradle
-          buildscript { repositories { google(); mavenCentral() }; dependencies { classpath 'com.android.tools.build:gradle:8.2.2' } }
+          buildscript { 
+              repositories { google(); mavenCentral() }
+              dependencies { 
+                  classpath 'com.android.tools.build:gradle:8.2.2'
+                  classpath 'com.google.gms:google-services:4.4.1'
+              } 
+          }
           EOF
 
           cat << 'EOF' > app/build.gradle
-          plugins { id 'com.android.application' }
+          plugins { 
+              id 'com.android.application'
+              id 'com.google.gms.google-services'
+          }
           android {
               namespace "${{ github.event.inputs.package_name }}"
               compileSdk 36
@@ -385,6 +475,10 @@ jobs:
                   versionName "${{ github.event.inputs.version_name }}"
               }
               buildTypes { release { minifyEnabled false; signingConfig signingConfigs.release } }
+          }
+          dependencies {
+              implementation platform('com.google.firebase:firebase-bom:32.7.2')
+              implementation 'com.google.firebase:firebase-messaging'
           }
           EOF
           echo "org.gradle.jvmargs=-Xmx2048m" > gradle.properties
