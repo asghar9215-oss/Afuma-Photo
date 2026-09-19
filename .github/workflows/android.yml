@@ -14,11 +14,11 @@ on:
       version_code:
         description: 'ورژن کوڈ لکھیں'
         required: true
-        default: '10025'
+        default: '10026'
       version_name:
         description: 'ورژن کا نام لکھیں'
         required: true
-        default: '1.0.25'
+        default: '1.0.26'
       blogger_url:
         description: 'اپنے بلاگر یا ایپ کا لائیو لنک یہاں پیسٹ کریں'
         required: true
@@ -54,73 +54,6 @@ jobs:
         run: |
           PKG_PATH=$(echo "${{ github.event.inputs.package_name }}" | tr '.' '/')
           
-          # Native Background Notification Worker
-          cat << 'EOF' > "app/src/main/java/$PKG_PATH/NotificationWorker.java"
-          package ${{ github.event.inputs.package_name }};
-
-          import android.content.Context;
-          import android.app.NotificationManager;
-          import android.app.NotificationChannel;
-          import android.app.PendingIntent;
-          import android.content.Intent;
-          import android.media.RingtoneManager;
-          import android.net.Uri;
-          import android.os.Build;
-          import androidx.annotation.NonNull;
-          import androidx.work.Worker;
-          import androidx.work.WorkerParameters;
-
-          public class NotificationWorker extends Worker {
-              public static final String CHANNEL_ID = "ji_bhai_khata_alerts";
-
-              public NotificationWorker(@NonNull Context context, @NonNull WorkerParameters workerParams) {
-                  super(context, workerParams);
-              }
-
-              @NonNull
-              @Override
-              public Result doWork() {
-                  showBackgroundNotification(getApplicationContext(), "💦 جی بھائی کھاتا - اہم الرٹ 💦", "محترم صارف! اپنا حساب کتاب اپڈیٹ کریں۔ ابھی ایپ کھولیں!");
-                  return Result.success();
-              }
-
-              public static void showBackgroundNotification(Context context, String title, String message) {
-                  NotificationManager notificationManager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
-
-                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                      NotificationChannel channel = new NotificationChannel(CHANNEL_ID, "Ji Bhai Khata Alerts", NotificationManager.IMPORTANCE_HIGH);
-                      if (notificationManager != null) {
-                          notificationManager.createNotificationChannel(channel);
-                      }
-                  }
-
-                  Intent intent = new Intent(context, MainActivity.class);
-                  intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-                  PendingIntent pendingIntent = PendingIntent.getActivity(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-
-                  Uri defaultSoundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
-
-                  android.app.Notification.Builder builder;
-                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                      builder = new android.app.Notification.Builder(context, CHANNEL_ID);
-                  } else {
-                      builder = new android.app.Notification.Builder(context);
-                  }
-
-                  builder.setSmallIcon(android.R.drawable.ic_popup_reminder)
-                          .setContentTitle(title)
-                          .setContentText(message)
-                          .setAutoCancel(true)
-                          .setSound(defaultSoundUri)
-                          .setContentIntent(pendingIntent);
-
-                  if (notificationManager != null) {
-                      notificationManager.notify((int) System.currentTimeMillis(), builder.build());
-                  }
-              }
-          }
-          EOF
-
           # MainActivity Source Code
           cat << 'EOF' > "app/src/main/java/$PKG_PATH/MainActivity.java"
           package ${{ github.event.inputs.package_name }};
@@ -145,19 +78,33 @@ jobs:
           import android.print.PrintAttributes;
           import android.print.PrintDocumentAdapter;
           import android.print.PrintManager;
-          import androidx.work.PeriodicWorkRequest;
-          import androidx.work.WorkManager;
-          import java.util.concurrent.TimeUnit;
+          import android.app.NotificationManager;
+          import android.app.NotificationChannel;
+          import android.app.PendingIntent;
+          import android.media.RingtoneManager;
+          import android.media.AudioAttributes;
+          import android.app.Notification;
 
           public class MainActivity extends Activity {
               private WebView myWebView;
               private ValueCallback<Uri[]> uploadMessage;
               private final static int FILECHOOSER_RESULTCODE = 1;
+              public static final String CHANNEL_ID = "ji_bhai_khata_alarm_channel";
 
               @Override
               protected void onCreate(Bundle savedInstanceState) {
                   super.onCreate(savedInstanceState);
                   
+                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+                      setShowWhenLocked(true);
+                      setTurnScreenOn(true);
+                  } else {
+                      getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED
+                              | android.view.WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+                              | android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+                              | android.view.WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD);
+                  }
+
                   if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                       requestPermissions(new String[]{
                               "android.permission.ACCESS_FINE_LOCATION",
@@ -167,13 +114,12 @@ jobs:
                               "android.permission.MODIFY_AUDIO_SETTINGS",
                               "android.permission.WRITE_EXTERNAL_STORAGE",
                               "android.permission.READ_EXTERNAL_STORAGE",
-                              "android.permission.POST_NOTIFICATIONS"
+                              "android.permission.POST_NOTIFICATIONS",
+                              "android.permission.USE_FULL_SCREEN_INTENT"
                       }, 1);
                   }
 
-                  // Schedule background worker for offline alerts
-                  PeriodicWorkRequest backgroundWork = new PeriodicWorkRequest.Builder(NotificationWorker.class, 15, TimeUnit.MINUTES).build();
-                  WorkManager.getInstance(this).enqueue(backgroundWork);
+                  createNotificationChannel();
 
                   myWebView = new WebView(this);
                   WebSettings webSettings = myWebView.getSettings();
@@ -283,6 +229,11 @@ jobs:
 
                   myWebView.addJavascriptInterface(new Object() {
                       @android.webkit.JavascriptInterface
+                      public void triggerNativeAlarmCall() {
+                          runOnUiThread(() -> triggerFullAlarmCall(MainActivity.this, "💦 جی بھائی کھاتا - الرٹ کال 💦", "محترم صارف! آپ کے لیے اہم پیغام ہے، ابھی چیک کریں!"));
+                      }
+
+                      @android.webkit.JavascriptInterface
                       public void printPage() {
                           runOnUiThread(() -> createWebPrintJob(myWebView));
                       }
@@ -290,6 +241,68 @@ jobs:
 
                   myWebView.loadUrl("${{ github.event.inputs.blogger_url }}");
                   setContentView(myWebView);
+              }
+
+              private void createNotificationChannel() {
+                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                      CharSequence name = "Ji Bhai Khata Alarm Channel";
+                      String description = "High priority call and alarm notifications";
+                      int importance = NotificationManager.IMPORTANCE_HIGH;
+                      NotificationChannel channel = new NotificationChannel(CHANNEL_ID, name, importance);
+                      channel.setDescription(description);
+                      
+                      Uri alarmSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
+                      if (alarmSound == null) {
+                          alarmSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
+                      }
+                      
+                      AudioAttributes audioAttributes = new AudioAttributes.Builder()
+                              .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                              .setUsage(AudioAttributes.USAGE_ALARM)
+                              .build();
+                              
+                      channel.setSound(alarmSound, audioAttributes);
+                      channel.enableVibration(true);
+                      channel.setVibrationPattern(new long[]{1000, 1000, 1000, 1000});
+
+                      NotificationManager notificationManager = getSystemService(NotificationManager.class);
+                      if (notificationManager != null) {
+                          notificationManager.createNotificationChannel(channel);
+                      }
+                  }
+              }
+
+              public static void triggerFullAlarmCall(Context context, String title, String message) {
+                  Intent intent = new Intent(context, MainActivity.class);
+                  intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                  PendingIntent pendingIntent = PendingIntent.getActivity(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+
+                  Uri alarmSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
+                  if (alarmSound == null) {
+                      alarmSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
+                  }
+
+                  Notification.Builder builder;
+                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                      builder = new Notification.Builder(context, CHANNEL_ID);
+                  } else {
+                      builder = new Notification.Builder(context);
+                  }
+
+                  builder.setSmallIcon(android.R.drawable.ic_popup_reminder)
+                          .setContentTitle(title)
+                          .setContentText(message)
+                          .setAutoCancel(true)
+                          .setSound(alarmSound)
+                          .setPriority(Notification.PRIORITY_MAX)
+                          .setDefaults(Notification.DEFAULT_VIBRATE)
+                          .setFullScreenIntent(pendingIntent, true)
+                          .setContentIntent(pendingIntent);
+
+                  NotificationManager notificationManager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+                  if (notificationManager != null) {
+                      notificationManager.notify((int) System.currentTimeMillis(), builder.build());
+                  }
               }
 
               private void createWebPrintJob(WebView webView) {
@@ -337,6 +350,9 @@ jobs:
               <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
               <uses-permission android:name="android.permission.VIBRATE" />
               <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+              <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+              <uses-permission android:name="android.permission.WAKE_LOCK" />
+              <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
 
               <uses-feature android:name="android.hardware.camera" android:required="false" />
               <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
@@ -351,6 +367,8 @@ jobs:
                   android:usesCleartextTraffic="true">
                   <activity android:name=".MainActivity"
                       android:exported="true"
+                      android:showWhenLocked="true"
+                      android:turnScreenOn="true"
                       android:configChanges="orientation|screenSize|keyboardHidden">
                       <intent-filter>
                           <action android:name="android.intent.action.MAIN" />
@@ -401,9 +419,6 @@ jobs:
                   versionName "${{ github.event.inputs.version_name }}"
               }
               buildTypes { release { minifyEnabled false; signingConfig signingConfigs.release } }
-          }
-          dependencies {
-              implementation 'androidx.work:work-runtime:2.9.0'
           }
           EOF
           echo "org.gradle.jvmargs=-Xmx2048m" > gradle.properties
