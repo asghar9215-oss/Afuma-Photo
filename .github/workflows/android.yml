@@ -1,4 +1,4 @@
-Name: Build Android Master Webview App
+name: ame: Build Android Master Webview App
 
 on:
   workflow_dispatch:
