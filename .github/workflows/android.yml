@@ -14,11 +14,11 @@ on:
       version_code:
         description: 'ورژن کوڈ لکھیں'
         required: true
-        default: '10022'
+        default: '10023'
       version_name:
         description: 'ورژن کا نام لکھیں'
         required: true
-        default: '1.0.22'
+        default: '1.0.23'
       blogger_url:
         description: 'اپنے بلاگر یا ایپ کا لائیو لنک یہاں پیسٹ کریں'
         required: true
@@ -154,7 +154,6 @@ jobs:
 
                   createNotificationChannel();
                   
-                  // Auto Subscribe all users to global FCM Topic for offline alerts
                   FirebaseMessaging.getInstance().subscribeToTopic("all_users");
 
                   myWebView = new WebView(this);
@@ -220,7 +219,12 @@ jobs:
 
                       @Override
                       public void onPermissionRequest(final PermissionRequest request) {
-                          runOnUiThread(() -> request.grant(request.getResources()));
+                          runOnUiThread(new Runnable() {
+                              @Override
+                              public void run() {
+                                  request.grant(request.getResources());
+                              }
+                          });
                       }
 
                       @Override
@@ -346,7 +350,7 @@ jobs:
           }
           EOF
 
-          # MyFirebaseMessagingService Code for Background Messaging
+          # MyFirebaseMessagingService Code
           cat << 'EOF' > "app/src/main/java/$PKG_PATH/MyFirebaseMessagingService.java"
           package ${{ github.event.inputs.package_name }};
 
